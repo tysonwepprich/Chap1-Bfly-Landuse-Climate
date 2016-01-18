@@ -1,0 +1,1714 @@
+---
+title: "Butterfly response to weather x landuse"
+author: "Tyson Wepprich"
+date: "Thursday, August 06, 2015"
+output: html_document
+---
+Chapter 1 Analysis
+
+Bayesian modeling of butterfly population change as responses to interaction
+of landuse and interannual variation in weather.
+
+Why important?
+Synergy of changes: climate and landuse trends. Predicted to be worse than
+the sum of the parts.
+
+But: studies show population variability explained more by one or the other?
+
+Concern about interaction. We know how butterflies respond to climate and 
+landuse separately. Is this the first that studies the interaction broadly? 
+(Other than the drought/landuse resilience paper)
+
+Mechanisms for interaction:
+1. Urban heat island effect alters local climate
+2. Smaller habitat patches offer fewer climate refugia/resources/diversity.
+
+Modeling:
+Crossed random effects of site and year (and eventually species maybe).
+Landuse and climate PCA to give predictors for random effects. (seasons?)
+Population index from regional GAM/UKBMS trapezoid method.
+Yearly lambda modeled as response to Nt-1, statewide trend, site, and year.
+
+Unresolved:
+Which predictors have random slopes?
+Should density-dependence interact with climate?
+How to do site x year (landuse x climate) interaction in the random effects?
+
+
+```{r Population Data}
+#Why is this wrong?
+#Only goes through 2011
+#Unresolved: what to do about sites that go down to very low numbers (too low for GAM estimates)?
+
+library(plyr)
+library(dplyr)
+library(data.table)
+
+checklist <- read.csv("C:/Users/Tyson/Desktop/Box Sync/Ohio/jan2014/Checklist.csv", header = TRUE)
+checklist <- checklist[, c("CheckListKey", "CommonName")]
+names(checklist)[1] <- "Species"
+checklist <- rbind(checklist, data.frame(Species = 4363, CommonName = "Azures"))
+setwd("C:/Users/Tyson/Desktop/Box Sync/Ohio/jan2014/populations")
+load("all.species.data.RData")
+names(all.species.env)[c(1,2,5)] <- c("SiteID", "Year", "Species")
+
+setwd("C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012")
+SpeciesList <- readRDS(file = "C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012/SpeciesList.rds")
+
+species <- as.character(SpeciesList$CommonName)
+species[4] <- "Azures"
+species <- species[1:68] 
+
+#gives data for one species, used for testing Bayesian models
+sp <- species[16]
+Pops <- readRDS(paste("RDSfiles/popsites", sp, ".rds", sep = ""))
+Pops$CommonName <- sp
+Pops$Year <- as.numeric(as.character(Pops$Year))
+Pops <- merge(Pops, checklist, by = "CommonName")
+data <- merge(Pops, all.species.env, by = c("SiteID", "Year", "Species"))
+
+TrpzNt1 <- numeric(length = dim(data)[1])
+for (i in 1:dim(data)[1]){
+  temp <- data$TrpzInd[which(data$SiteID == data$SiteID[i] & data$Year == data$Year[i] - 1)]
+  if (length(temp) == 0){
+    TrpzNt1[i] <- NA
+    }else{
+      TrpzNt1[i] <- temp
+      }
+  }
+
+data$TrpzNt1 <- TrpzNt1
+
+# data <- data %>%
+#   mutate(TrapLogLam = log(TrpzInd / TrpzNt1))
+# data <- data[, c(1, 2, 5, 11:16, 18, 19)]
+# data <- data[complete.cases(data), ]
+
+JAGSdat <- data[, c(1, 2, 5, 13, 14, 18), with = FALSE]
+JAGSdat$TrpzInd <- round(JAGSdat$TrpzInd)
+JAGSdat$TrpzNt1 <- round(JAGSdat$TrpzNt1)
+# 
+# 
+# #data for all species
+# ExtractPops <- function(sp){
+#   data <- readRDS(paste("RDSfiles/popsites", sp, ".rds", sep = ""))
+#   data$CommonName <- sp
+#   data$Year <- as.numeric(as.character(data$Year))
+# 
+#   TrpzNt1 <- numeric(length = dim(data)[1])
+#   for (i in 1:dim(data)[1]){
+#     temp <- data$TrpzInd[which(data$SiteID == data$SiteID[i] & data$Year == data$Year[i] - 1)]
+#     if (length(temp) == 0){
+#       TrpzNt1[i] <- NA
+#     }else{
+#       TrpzNt1[i] <- temp
+#     }
+#   }
+#   
+#   data$TrpzNt1 <- TrpzNt1
+#   data <- data %>%
+#     mutate(TrapLogLam = log(TrpzInd + 0.5) - log(TrpzNt1 + 0.5))
+#   return(data)
+# }
+# 
+# PopList <- lapply(species, ExtractPops)
+# PopList[[68]] <- NULL
+# 
+# pops <- rbindlist(PopList)
+# saveRDS(pops, file = "AllSpeciesPops.rds")
+
+```
+
+
+Coming back for more, January 2016 attempt after Hobbs and Hooten 2015 work.
+Successful model of one species at a time, with site/yr random effects and weather covariates.
+Still need to add in landuse, annual survey effort, and multispecies.
+Convergence an issue, possibly because a lot of the parameters for growth rate trade off.
+How to make model more identifiable?
+
+
+```{r january jags}
+dat <- JAGSdat %>%
+  group_by(SiteID) %>%
+  mutate(LengthTS = max(Year) - min(Year), NumCounts = length(unique(Year))) %>%
+  filter(NumCounts >= 5)
+
+# what to do about missing years? 
+# can estimate in time series approach, but think I need the missing covariates, too
+dat$Year <- as.factor(as.character(dat$Year))
+dat[, SiteID := formatC(SiteID, width = 3, format = "d", flag = "0")]
+
+# all years x sites
+allsiteyr <- expand.grid(sort(unique(dat$Year)), sort(unique(dat$SiteID)))
+names(allsiteyr) <- c("Year", "SiteID")
+alldat <- merge(allsiteyr, dat, all.x = TRUE)
+
+# model covariates and predict missing values
+cov.mod.1 <- lm(win.Comp.1 ~ SiteID + Year, data = dat)
+cov.mod.2 <- lm(win.Comp.2 ~ SiteID + Year, data = dat)
+
+alldat[is.na(alldat$win.Comp.1), "win.Comp.1"] <- predict(cov.mod.1, newdata = alldat[is.na(alldat$win.Comp.1), ] )
+alldat[is.na(alldat$win.Comp.2), "win.Comp.2"] <- predict(cov.mod.2, newdata = alldat[is.na(alldat$win.Comp.2), ] )
+
+# cut out 1997, will use priors for this years starting population sizes
+finaldat <- alldat[-which(alldat$Year == "1997"), 1:5]
+
+nyears <- length(unique(finaldat$Year))
+nsites <- length(unique(finaldat$SiteID))
+
+# put all data into an array for JAGS (not necesary, but seems organized like Kery & Schaub)
+library(reshape2)
+dat_array <- array(NA, dim = c(nsites, nyears, 3))
+cov_molten <- melt(finaldat, id = c("SiteID", "Year"))
+dat_array[,,1] <- as.matrix(acast(cov_molten[cov_molten$variable == "TrpzInd", ], SiteID ~ Year, value = "value"))
+dat_array[,,2] <- as.matrix(acast(cov_molten[cov_molten$variable == "win.Comp.1", ], SiteID ~ Year, value = "value"))
+dat_array[,,3] <- as.matrix(acast(cov_molten[cov_molten$variable == "win.Comp.2", ], SiteID ~ Year, value = "value"))
+
+Nstartvals <- round(apply(dat_array[,,1], 1, mean, na.rm = TRUE))
+  
+
+library(R2jags)
+
+# First, get workflow down for population model with just one species
+
+# Specify model in BUGS language
+sink("OneSpecies.txt")
+cat("
+    model {
+    for (i in 1:nsites){ # weird index because N and y different sizes due to Nt0
+      for (j in 2:(nyears + 1)){
+        # Observation model
+        # y[i, j - 1] ~ dpois(N[i, j])
+        y[i, j - 1] ~ dnorm(logpop[i, j], tau.obs)
+        
+        # Process model
+        logpop[i, j] <- logpop[i, j - 1] + r[i, j - 1] # multiply growth rate by previous size
+        r[i, j - 1] ~ dnorm(mu.r[i, j - 1], tau.proc)
+        mu.r[i, j - 1] <- beta0 + beta1[i] * logpop[i, j - 1] + beta2[i] * weather_cov1[i, j - 1] + beta3[i] * weather_cov2[i, j - 1] + year_RE[j]
+        # beta0 common to species, intrinsic growth rate
+        # beta1 and beta2 vary by site, accounting for carrying capacity (assumed constant over time)
+
+        # Derived
+        N.est[i, j - 1] <- exp(logpop[i, j])
+      }
+    }
+
+    # Priors
+    # Starting population sizes
+    for (i in 1:nsites){
+      logpop[i, 1] <- log(N[i])
+      N[i] ~ dpois(Nstart[i])
+    }
+    
+    sigma.proc ~ dunif(0, 5)
+    tau.proc <- pow(sigma.proc, -2)
+    sigma.obs ~ dunif(0, 5)
+    tau.obs <- pow(sigma.obs, -2)
+    
+    beta0 ~ dnorm(0, 0.001)
+#     beta1 ~ dnorm(0, 0.001)
+#     beta2 ~ dnorm(0, 0.001)
+    
+    for (j in 1:nsites){
+      beta1[j] ~ dnorm(mu.beta1, tau.beta1)
+      beta2[j] ~ dnorm(mu.beta2, tau.beta2)
+      beta3[j] ~ dnorm(mu.beta3, tau.beta3)
+    }
+    mu.beta1 ~ dnorm(0, 0.001)
+    tau.beta1 <- pow(sigma.beta1, -2)
+    sigma.beta1 ~ dunif(0, 5)
+    mu.beta2 ~ dnorm(0, 0.001)
+    tau.beta2 <- pow(sigma.beta2, -2)
+    sigma.beta2 ~ dunif(0, 5)
+    mu.beta3 ~ dnorm(0, 0.001)
+    tau.beta3 <- pow(sigma.beta3, -2)
+    sigma.beta3 ~ dunif(0, 5)
+
+    for (i in 1:(nyears + 1)){
+      year_RE[i] ~ dnorm(0, tau.year)
+    }
+    tau.year <- pow(sigma.year, -2)
+    sigma.year ~ dunif(0, 5)
+
+    }
+    
+    ",fill = TRUE)
+sink()
+
+
+#add column of NAs for Nt0 in initial values of N
+Ninit <- array(NA, dim = c(nsites, nyears))
+# for (i in 1:nrow(Ninit)){
+#   Ninit[i, ] <- rep(max(dat_array[i,,1], na.rm = TRUE) + 1, ncol(Ninit))
+# }
+Ninit <- cbind(rep(NA, nrow(Ninit)), Ninit)
+
+                                                                                                                                                                                                                
+j.data <- list(y = log(dat_array[, , 1]), weather_cov1 = dat_array[, , 2], weather_cov2 = dat_array[, , 2] ^ 2, nsites = nsites, nyears = nyears, Nstart = Nstartvals)
+
+j.inits <- function(){
+  list(
+       beta0 = rnorm(1), 
+       # beta1 = rnorm(1), 
+       # beta2 = rnorm(1), 
+       beta1 = rnorm(nsites), 
+       beta2 = rnorm(nsites), 
+       beta3 = rnorm(nsites),
+       mu.beta1 = rnorm(1),
+       mu.beta2 = rnorm(1),
+       mu.beta3 = rnorm(1),
+       sigma.beta1 = runif(1, 0, 5), 
+       sigma.beta2 = runif(1, 0, 5), 
+       sigma.beta3 = runif(1, 0, 5), 
+       sigma.proc = runif(1, 0, 5),
+       sigma.obs = runif(1, 0, 5),
+       sigma.year = runif(1, 0, 5)
+       # N = Ninit
+  )
+}
+j.param <- c("N.est", "beta0", "sigma.proc", "sigma.obs", "sigma.beta1", "mu.beta1","sigma.beta2", "mu.beta2", "sigma.beta3", "mu.beta3", "sigma.year")
+
+ni <- 100000
+nt <- 80
+nb <- 20000
+nc <- 3
+
+mod2 <- jags(j.data, inits = NULL, j.param, "OneSpecies.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+Ns1 <- mod1$BUGSoutput$median$N.est
+Ns2 <- mod2$BUGSoutput$median$N.est
+
+print(mod2, digits = 2)
+# plot observations and estimated population sizes for all sites
+
+library(ggplot2)
+
+#mod1
+plot_df <- data.frame()
+for (i in 1:nsites){
+  for (j in 1:nyears){
+    year <- unique(finaldat$Year)[j]
+    site <- unique(finaldat$SiteID)[i]
+    count <- dat_array[i, j, 1]
+    popest <- mean(mod1$BUGSoutput$sims.list$N.est[, i, j])
+    lower <- quantile(mod1$BUGSoutput$sims.list$N.est[, i, j], 0.025)
+    upper <- quantile(mod1$BUGSoutput$sims.list$N.est[, i, j], 0.975)
+    temp <- data.frame(year, site, count, popest, lower, upper)
+    plot_df <- rbind(plot_df, temp)
+  }
+}
+
+#mod2
+plot_df <- data.frame()
+for (i in 1:nsites){
+  for (j in 1:nyears){
+    year <- unique(finaldat$Year)[j]
+    site <- unique(finaldat$SiteID)[i]
+    count <- dat_array[i, j, 1]
+    popest <- mean(mod2$BUGSoutput$sims.list$N.est[, i, j])
+    lower <- quantile(mod2$BUGSoutput$sims.list$N.est[, i, j], 0.025)
+    upper <- quantile(mod2$BUGSoutput$sims.list$N.est[, i, j], 0.975)
+    temp <- data.frame(year, site, count, popest, lower, upper)
+    plot_df <- rbind(plot_df, temp)
+  }
+}
+
+
+(p1 <- ggplot(plot_df, aes(x = year, y = count, group = site))+
+    geom_point()+
+    geom_line(aes(y = popest))+
+    geom_ribbon(aes(ymin=lower,ymax=upper),alpha=0.3) + 
+    facet_wrap(~ site, nrow = 6, scales = "free")
+    )
+```
+
+
+
+
+Maybe try multispecies model with simple site/year random effects as baseline before adding the weather and landuse covariates. See if it can converge before complicating more.
+
+```{r multispecies jags}
+data <- readRDS(file = "AllSpeciesPops.rds")
+data <- merge(data, checklist, by = "CommonName", all.x = TRUE, all.y = FALSE, allow.cartesian = TRUE)
+data <- merge(data, all.species.env, by = c("SiteID", "Year", "Species"))
+
+
+JAGSdat <- data[, c(1, 2, 4, 5, 9, 15, 16), with = FALSE]
+JAGSdat$TrpzInd <- round(JAGSdat$TrpzInd)
+JAGSdat$TrpzNt1 <- round(JAGSdat$TrpzNt1)
+
+# choose species
+spec_sel <- SpeciesList[c(10:20), "CommonName"]
+JAGSdat <- JAGSdat %>%
+  filter(CommonName %in% spec_sel)
+
+dat <- JAGSdat %>%
+  group_by(SiteID, CommonName) %>%
+  mutate(LengthTS = max(Year) - min(Year), NumCounts = length(unique(Year))) %>%
+  filter(NumCounts >= 10)
+
+# what to do about missing years? 
+# can estimate in time series approach, but think I need the missing covariates, too
+dat$Year <- as.factor(as.character(dat$Year))
+dat[, SiteID := formatC(SiteID, width = 3, format = "d", flag = "0")]
+
+# all years x sites
+allsiteyr <- expand.grid(sort(unique(dat$Year)), sort(unique(dat$SiteID)), sort(unique(dat$CommonName)))
+names(allsiteyr) <- c("Year", "SiteID", "CommonName")
+alldat <- merge(allsiteyr, dat, by = c("Year", "SiteID", "CommonName"), all.x = TRUE)
+# assign zeros when surveyed but not counted, NA when not surveyed that year/site
+for (i in 1:nrow(alldat)){
+  temp <- alldat[i, ]
+  if (is.na(temp$TrpzInd) == TRUE){
+    site_yr <- alldat %>% filter(Year == temp$Year & SiteID == temp$SiteID)
+    site_yr <- site_yr[complete.cases(site_yr), ]
+    if (nrow(site_yr) > 0){
+      alldat$TrpzInd[i] <- 0
+      alldat$win.Comp.1[i] <- site_yr$win.Comp.1[1]
+      alldat$win.Comp.2[i] <- site_yr$win.Comp.2[1]
+    }
+  }
+}
+
+
+
+# model covariates and predict missing values
+env.dat <- unique(dat[, c("SiteID", "Year", "win.Comp.1", "win.Comp.2"), with = FALSE])
+
+cov.mod.1 <- lm(win.Comp.1 ~ SiteID + Year, data = env.dat)
+cov.mod.2 <- lm(win.Comp.2 ~ SiteID + Year, data = env.dat)
+
+alldat[is.na(alldat$win.Comp.1), "win.Comp.1"] <- predict(cov.mod.1, newdata = alldat[is.na(alldat$win.Comp.1), ] )
+alldat[is.na(alldat$win.Comp.2), "win.Comp.2"] <- predict(cov.mod.2, newdata = alldat[is.na(alldat$win.Comp.2), ] )
+
+# cut out 1997, will use priors for this years starting population sizes
+finaldat <- alldat[-which(alldat$Year == "1997"), 1:7]
+
+nyears <- length(unique(finaldat$Year))
+nsites <- length(unique(finaldat$SiteID))
+nspecies <- length(unique(finaldat$CommonName))
+
+# put all data into an array for JAGS (not necesary, but seems organized like Kery & Schaub)
+library(reshape2)
+count_array <- array(NA, dim = c(nsites, nyears, nspecies))
+cov_array <- array(NA, dim = c(nsites, nyears, 2))
+cov_molten <- melt(finaldat, id = c("SiteID", "Year", "CommonName"))
+
+count_array <- acast(cov_molten[cov_molten$variable == "TrpzInd", ], SiteID ~ Year ~ CommonName, value = "value")
+cov_array[,,1] <- acast(cov_molten[cov_molten$variable == "win.Comp.1", ], SiteID ~ Year ~ CommonName, value = "value")[,,1]
+cov_array[,,2] <- acast(cov_molten[cov_molten$variable == "win.Comp.2", ], SiteID ~ Year ~ CommonName, value = "value")[,,1]
+
+Nstartvals <- round(apply(count_array, c(1,3), mean, na.rm = TRUE))
+  
+
+library(R2jags)
+
+# Specify model in BUGS language
+sink("MultiSpecies.txt")
+cat("
+    model {
+    for (i in 1:nsites){ # weird index because N and y different sizes due to Nt0
+      for (k in 1:nspecies){
+        # Latent suitability for site x species      
+        z[i, k] ~ dbern(omega[k])
+
+        for (j in 2:(nyears + 1)){
+        # Observation model
+        # Zero-inflated poisson
+        y[i, j - 1, k] ~ dpois(N.eff[i, j - 1, k] + 0.00001)
+        N.eff[i, j - 1, k] <- z[i, k] * N[i, j, k]
+        
+        # Process model
+        N[i, j, k] <- N[i, j - 1, k] * lam[i, j - 1, k] # multiply growth rate by previous size
+        log(lam[i, j - 1, k]) <- beta0[i, j - 1, k] + beta1[i, j - 1, k] * log(N[i, j - 1, k] + 1) + eps[i, j - 1, k]
+        eps[i, j - 1, k] ~ dnorm(0, tau.proc)
+
+        # Modeled parameters
+        beta0[i, j - 1, k] <- r.sp[k] + r.site[i] + r.yr[j - 1]
+        beta1[i, j - 1, k] <- K.site[i] + K.sp[k]
+
+        }
+      }
+    }
+
+    # Priors
+    # Suitability
+    for (k in 1:nspecies){
+      omega[k] ~ dunif(0, 1)
+      K.sp[k] ~ dnorm(mu.K.sp, tau.K.sp)
+      r.sp[k] ~ dnorm(mu.r.sp, tau.r.sp)
+    }  
+
+    for (i in 1:nsites){
+      K.site[i] ~ dnorm(0, tau.K.site)
+      r.site[i] ~ dnorm(0, tau.r.site)
+      for (k in 1:nspecies){
+        N[i, 1, k] ~ dpois(Nstart[i, k])
+      }
+    }
+
+    for (j in 1:(nyears + 1)){
+      r.yr[j] ~ dnorm(0, tau.r.yr)
+    }
+    
+    sigma.proc ~ dunif(0, 5)
+    tau.proc <- pow(sigma.proc, -2)
+    sigma.r.yr ~ dunif(0, 5)
+    tau.r.yr <- pow(sigma.r.yr, -2)
+    sigma.r.site ~ dunif(0, 5)
+    tau.r.site <- pow(sigma.r.site, -2)
+    sigma.K.site ~ dunif(0, 5)
+    tau.K.site <- pow(sigma.K.site, -2)
+
+    mu.r.sp ~ dnorm(0, 0.001)
+    tau.r.sp <- pow(sigma.r.sp, -2)
+    sigma.r.sp ~ dunif(0, 5)
+    mu.K.sp ~ dnorm(0, 0.001)
+    tau.K.sp <- pow(sigma.K.sp, -2)
+    sigma.K.sp ~ dunif(0, 5)
+
+    }
+    
+    ",fill = TRUE)
+sink()
+
+
+#add column of NAs for Nt0 in initial values of N
+Ninit <- array(NA, dim = c(nsites, nyears))
+# for (i in 1:nrow(Ninit)){
+#   Ninit[i, ] <- rep(max(dat_array[i,,1], na.rm = TRUE) + 1, ncol(Ninit))
+# }
+Ninit <- cbind(rep(NA, nrow(Ninit)), Ninit)
+
+                                                                                                                                                                                                                
+j.data <- list(y = count_array, nsites = nsites, nyears = nyears, nspecies = nspecies, Nstart = Nstartvals)
+
+j.inits <- function(){
+  list(
+       
+       omega = runif(nspecies, 0, 1),
+       mu.K.sp = rnorm(1),
+       mu.r.sp = rnorm(1),
+       sigma.r.yr = runif(1, 0, 5), 
+       sigma.r.site = runif(1, 0, 5), 
+       sigma.r.sp = runif(1, 0, 5), 
+       sigma.proc = runif(1, 0, 5),
+       sigma.K.sp = runif(1, 0, 5),
+       sigma.K.site = runif(1, 0, 5)
+  )
+}
+j.param <- c("omega", "mu.K.sp", "mu.r.sp", "sigma.r.yr", "sigma.r.site", "sigma.r.sp", "sigma.proc", "sigma.K.sp", "sigma.K.site")
+
+ni <- 100000
+nt <- 80
+nb <- 20000
+nc <- 3
+
+mod1MS <- jags(j.data, inits = j.inits, j.param, "MultiSpecies.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+Ns1 <- mod1$BUGSoutput$median$N.est
+Ns2 <- mod2$BUGSoutput$median$N.est
+
+print(mod1MS, digits = 2)
+# plot observations and estimated population sizes for all sites
+
+library(ggplot2)
+
+#mod1
+plot_df <- data.frame()
+for (i in 1:nsites){
+  for (j in 1:nyears){
+    year <- unique(finaldat$Year)[j]
+    site <- unique(finaldat$SiteID)[i]
+    count <- dat_array[i, j, 1]
+    popest <- mean(mod1$BUGSoutput$sims.list$N.est[, i, j])
+    lower <- quantile(mod1$BUGSoutput$sims.list$N.est[, i, j], 0.025)
+    upper <- quantile(mod1$BUGSoutput$sims.list$N.est[, i, j], 0.975)
+    temp <- data.frame(year, site, count, popest, lower, upper)
+    plot_df <- rbind(plot_df, temp)
+  }
+}
+
+#mod2
+plot_df <- data.frame()
+for (i in 1:nsites){
+  for (j in 1:nyears){
+    year <- unique(finaldat$Year)[j]
+    site <- unique(finaldat$SiteID)[i]
+    count <- dat_array[i, j, 1]
+    popest <- mean(mod2$BUGSoutput$sims.list$N.est[, i, j])
+    lower <- quantile(mod2$BUGSoutput$sims.list$N.est[, i, j], 0.025)
+    upper <- quantile(mod2$BUGSoutput$sims.list$N.est[, i, j], 0.975)
+    temp <- data.frame(year, site, count, popest, lower, upper)
+    plot_df <- rbind(plot_df, temp)
+  }
+}
+
+
+(p1 <- ggplot(plot_df, aes(x = year, y = count, group = site))+
+    geom_point()+
+    geom_line(aes(y = popest))+
+    geom_ribbon(aes(ymin=lower,ymax=upper),alpha=0.3) + 
+    facet_wrap(~ site, nrow = 6, scales = "free")
+    )
+```
+
+
+```{r multispecies simpler}
+# just species random effects for R intercept and K slopes. Site and year random effects on R intercept.
+
+# Specify model in BUGS language
+sink("MultiSpecies2.txt")
+cat("
+    model {
+    for (i in 1:nsites){ # weird index because N and y different sizes due to Nt0
+      for (k in 1:nspecies){
+        # Latent suitability for site x species      
+        z[i, k] ~ dbern(omega[k])
+
+        for (j in 2:(nyears + 1)){
+        # Observation model
+        # Zero-inflated poisson
+        y[i, j - 1, k] ~ dpois(N.eff[i, j - 1, k] + 0.00001)
+        N.eff[i, j - 1, k] <- z[i, k] * N[i, j, k]
+        
+        # Process model
+        N[i, j, k] <- N[i, j - 1, k] * lam[i, j - 1, k] # multiply growth rate by previous size
+        log(lam[i, j - 1, k]) <- beta0[k] + beta1[k] * log(N[i, j - 1, k] + 1) + siteRE[i] + yearRE[j - 1] 
+#         + eps[i, j - 1, k]
+#         eps[i, j - 1, k] ~ dnorm(0, tau.proc[k])
+
+        }
+      }
+    }
+
+    # Priors
+    # Suitability
+    for (k in 1:nspecies){
+      omega[k] ~ dunif(0, 1)
+      beta0[k] ~ dnorm(mu.r.sp, tau.r.sp)
+      beta1[k] ~ dnorm(mu.K.sp, tau.K.sp)
+    }  
+
+    for (i in 1:nsites){
+      siteRE[i] ~ dnorm(0, tau.siteRE)
+      for (k in 1:nspecies){
+        N[i, 1, k] ~ dpois(Nstart[i, k])
+      }
+    }
+
+    for (j in 1:nyears){
+      yearRE[j] ~ dnorm(0, tau.yearRE)
+    }
+    
+#     for (k in 1:nspecies){
+#       sigma.proc[k] ~ dunif(0, 5)
+#       tau.proc[k] <- pow(sigma.proc[k], -2)
+#     }
+#     sigma.proc ~ dunif(0, 5)
+#     tau.proc <- pow(sigma.proc, -2)
+
+    sigma.yearRE ~ dunif(0, 5)
+    tau.yearRE <- pow(sigma.yearRE, -2)
+    sigma.siteRE ~ dunif(0, 5)
+    tau.siteRE <- pow(sigma.siteRE, -2)
+
+    mu.r.sp ~ dnorm(0, 0.001)
+    tau.r.sp <- pow(sigma.r.sp, -2)
+    sigma.r.sp ~ dunif(0, 5)
+    mu.K.sp ~ dnorm(0, 0.001)
+    tau.K.sp <- pow(sigma.K.sp, -2)
+    sigma.K.sp ~ dunif(0, 5)
+
+    }
+    
+    ",fill = TRUE)
+sink()
+
+
+#add column of NAs for Nt0 in initial values of N
+Ninit <- array(NA, dim = c(nsites, nyears))
+# for (i in 1:nrow(Ninit)){
+#   Ninit[i, ] <- rep(max(dat_array[i,,1], na.rm = TRUE) + 1, ncol(Ninit))
+# }
+Ninit <- cbind(rep(NA, nrow(Ninit)), Ninit)
+
+                                                                                                                                                                                                                
+j.data <- list(y = count_array, nsites = nsites, nyears = nyears, nspecies = nspecies, Nstart = Nstartvals)
+
+j.inits <- function(){
+  list(
+       
+       omega = runif(nspecies, 0, 1),
+       mu.K.sp = rnorm(1),
+       mu.r.sp = rnorm(1),
+       sigma.yearRE = runif(1, 0, 5), 
+       sigma.siteRE = runif(1, 0, 5), 
+       sigma.r.sp = runif(1, 0, 5), 
+       # sigma.proc = runif(nspecies, 0, 5),
+       sigma.K.sp = runif(1, 0, 5)
+  )
+}
+j.param <- c("omega", "mu.K.sp", "mu.r.sp", "sigma.yearRE", "sigma.siteRE", "sigma.r.sp", "N")
+
+ni <- 10000
+nt <- 8
+nb <- 2000
+nc <- 3
+
+mod2MS <- jags(j.data, inits = NULL, j.param, "MultiSpecies2.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+# library(devtools)
+# install_github(repo='jagstools', username='johnbaums')
+library(jagstools)
+
+# show all results except for the many N nodes
+round(jagsresults(x=mod2MS, params='N', invert=TRUE), 2)
+
+jags.Ns <- jagsresults(x=mod2MS, param='N')
+N.ests <- array(data = round(jags.Ns[, "mean"]), dim = c(nsites, nyears, nspecies))
+rearray(x = mod2MS, param = "N", fields = "mean")
+
+sp <- 8
+plot(count_array[,,sp], N.ests[,,sp])
+abline(0, 1)
+
+```
+
+
+
+
+
+```{r old stuff}
+# Specify model in BUGS language
+sink("SimpleCrossed.txt")
+cat("
+    model {
+    
+    for (i in 1:n){
+      y[i] ~ dpois(lambda[i])
+      log(lambda[i]) <- mu + beta1*log(nt1[i]) + beta2*year[i] + gamma[site[i]] + delta[year[i]] + epsilon[i]
+      epsilon[i] ~ dnorm(0, tau.epsilon)
+    }
+    mu ~ dnorm(0, 0.001)
+    tau.epsilon <- pow(sigma.epsilon, -2)
+    sigma.epsilon ~ dunif(0, 10)
+    beta1 ~ dnorm(0, 0.001)
+    beta2 ~ dnorm(0, 0.001)
+    
+    for (j in 1:n.site){
+      gamma[j] ~ dnorm(0, tau.gamma)
+    }
+    tau.gamma <- pow(sigma.gamma, -2)
+    sigma.gamma ~ dunif(0, 10)
+    
+    for (k in 1:n.year){
+      delta[k] ~ dnorm(0, tau.delta)
+    }
+    tau.delta <- pow(sigma.delta, -2)
+    sigma.delta ~ dunif(0, 10)
+    
+    }
+    
+    ",fill = TRUE)
+sink()
+
+
+#reassign sites and years as factors
+site.name <- as.vector(data$SiteID)
+uniq.site <- unique(site.name)
+J <- length(uniq.site)
+sites <- rep(NA, J)
+for (i in 1:J){
+  sites[site.name == uniq.site[i]] <- i
+}
+
+year.name <- as.vector(data$Year)
+uniq.year <- unique(year.name)
+K <- length(uniq.year)
+years <- rep(NA, K)
+for (i in 1:K){
+  years[year.name == uniq.year[i]] <- i
+}
+
+n <- nrow(data)
+
+                                                                                                                                                                                                                
+j.data <- list(y = round(data$TrpzInd), nt1 = round(data$TrpzNt1), site = sites, year = years, n.site = J, n.year = K, n = n)
+j.inits <- function(){
+  list(mu = rnorm(1), beta1 = rnorm(1), beta2 = rnorm(1), sigma.gamma = runif(1), 
+       sigma.delta = runif(1), sigma.epsilon = runif(1), epsilon = rnorm(n), 
+       gamma = rnorm(J), delta = rnorm(K))
+}
+j.param <- c("mu", "beta1", "beta2", "gamma", "sigma.gamma", "delta", "sigma.delta", "sigma.epsilon")
+ni <- 10000
+nt <- 8
+nb <- 2000
+nc <- 3
+
+mod1 <- jags(j.data, inits = NULL, j.param, "simpleCrossed.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+```
+
+
+
+
+
+
+```{r jags model}
+library(R2jags)
+
+# First, get workflow down for population model with just crossed site and year
+# Also has density dependence and overall trend
+# Is poisson right here? Which values should be log?
+
+# Specify model in BUGS language
+sink("simpleCrossed.txt")
+cat("
+    model {
+    
+    for (i in 1:n){
+      y[i] ~ dpois(lambda[i])
+      log(lambda[i]) <- mu + beta1*log(nt1[i]) + beta2*year[i] + gamma[site[i]] + delta[year[i]] + epsilon[i]
+      epsilon[i] ~ dnorm(0, tau.epsilon)
+    }
+    mu ~ dnorm(0, 0.001)
+    tau.epsilon <- pow(sigma.epsilon, -2)
+    sigma.epsilon ~ dunif(0, 10)
+    beta1 ~ dnorm(0, 0.001)
+    beta2 ~ dnorm(0, 0.001)
+    
+    for (j in 1:n.site){
+      gamma[j] ~ dnorm(0, tau.gamma)
+    }
+    tau.gamma <- pow(sigma.gamma, -2)
+    sigma.gamma ~ dunif(0, 10)
+    
+    for (k in 1:n.year){
+      delta[k] ~ dnorm(0, tau.delta)
+    }
+    tau.delta <- pow(sigma.delta, -2)
+    sigma.delta ~ dunif(0, 10)
+    
+    }
+    
+    ",fill = TRUE)
+sink()
+
+
+#reassign sites and years as factors
+site.name <- as.vector(data$SiteID)
+uniq.site <- unique(site.name)
+J <- length(uniq.site)
+sites <- rep(NA, J)
+for (i in 1:J){
+  sites[site.name == uniq.site[i]] <- i
+}
+
+year.name <- as.vector(data$Year)
+uniq.year <- unique(year.name)
+K <- length(uniq.year)
+years <- rep(NA, K)
+for (i in 1:K){
+  years[year.name == uniq.year[i]] <- i
+}
+
+n <- nrow(data)
+
+                                                                                                                                                                                                                
+j.data <- list(y = round(data$TrpzInd), nt1 = round(data$TrpzNt1), site = sites, year = years, n.site = J, n.year = K, n = n)
+j.inits <- function(){
+  list(mu = rnorm(1), beta1 = rnorm(1), beta2 = rnorm(1), sigma.gamma = runif(1), 
+       sigma.delta = runif(1), sigma.epsilon = runif(1), epsilon = rnorm(n), 
+       gamma = rnorm(J), delta = rnorm(K))
+}
+j.param <- c("mu", "beta1", "beta2", "gamma", "sigma.gamma", "delta", "sigma.delta", "sigma.epsilon")
+ni <- 10000
+nt <- 8
+nb <- 2000
+nc <- 3
+
+mod1 <- jags(j.data, inits = NULL, j.param, "simpleCrossed.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+
+#similar in R?
+library(lme4)
+
+data$SiteID <- as.character(data$SiteID)
+data$Year <- as.character(data$Year)
+data$TrpzInd <- round(data$TrpzInd)
+data$TrpzNt1 <- round(data$TrpzNt1)
+mod2 <- glmer(TrpzInd ~ log(TrpzNt1) + scale(as.numeric(Year)) + (1|SiteID) + (1|Year), data = data, family = poisson)
+
+#adding "interaction" of random effects when no repeated measures as each group is very similar to 
+#the jags model with observation level random effects for overdispersion
+#exquivalent to above jags mod1
+mod3 <- glmer(TrpzInd ~ log(TrpzNt1) + scale(as.numeric(Year)) + (1|SiteID) + (1|Year) + (1|SiteID:Year), data = data, family = poisson)
+
+
+
+
+
+
+#Try same thing, but with log growth rate as normal response
+#quadratic density dependence like Dooley 2013
+
+# Specify model in BUGS language
+sink("DensDepCrossed.txt")
+cat("
+    model {
+    
+    for (i in 1:n){
+      loglam[i] ~ dnorm(loglam.hat[i], tau.epsilon)
+      loglam.hat[i] <- mu + beta1*nt1[i] + beta2*pow(nt1[i], 2) + beta3*year[i] + gamma[site[i]] + delta[year[i]]
+    }
+    mu ~ dnorm(0, 0.001)
+    tau.epsilon <- pow(sigma.epsilon, -2)
+    sigma.epsilon ~ dunif(0, 10)
+    beta1 ~ dnorm(0, 0.001)
+    beta2 ~ dnorm(0, 0.001)
+    beta3 ~ dnorm(0, 0.001)
+    
+    for (j in 1:n.site){
+      gamma[j] ~ dnorm(0, tau.gamma)
+    }
+    tau.gamma <- pow(sigma.gamma, -2)
+    sigma.gamma ~ dunif(0, 10)
+    
+    for (k in 1:n.year){
+      delta[k] ~ dnorm(0, tau.delta)
+    }
+    tau.delta <- pow(sigma.delta, -2)
+    sigma.delta ~ dunif(0, 10)
+    
+    }
+    
+    ",fill = TRUE)
+sink()
+
+#reassign sites and years as factors
+site.name <- as.vector(data$SiteID)
+uniq.site <- unique(site.name)
+J <- length(uniq.site)
+sites <- rep(NA, J)
+for (i in 1:J){
+  sites[site.name == uniq.site[i]] <- i
+}
+
+year.name <- as.vector(data$Year)
+uniq.year <- unique(year.name)
+K <- length(uniq.year)
+years <- rep(NA, K)
+for (i in 1:K){
+  years[year.name == uniq.year[i]] <- i
+}
+
+n <- nrow(data)
+
+                                                                                                                                                                                                                
+j.data <- list(loglam = data$TrapLogLam, nt1 = log(data$TrpzNt1), site = sites, year = years, n.site = J, n.year = K, n = n)
+j.inits <- function(){
+  list(mu = rnorm(1), 
+       beta1 = rnorm(1), 
+       beta2 = rnorm(1),
+       beta3 = rnorm(1),
+       sigma.gamma = runif(1), 
+       sigma.delta = runif(1), 
+       sigma.epsilon = runif(1), 
+       gamma = rnorm(J), 
+       delta = rnorm(K))
+}
+j.param <- c("mu", "beta1", "beta2", "beta3", "gamma", "sigma.gamma", "delta", "sigma.delta", "sigma.epsilon")
+ni <- 50000
+nt <- 10
+nb <- 10000
+nc <- 3
+
+mod1 <- jags(j.data, inits = NULL, j.param, "DensDepCrossed.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+
+#try it in lmer, roughly the same results
+mod2 <- lmer(TrapLogLam ~ log(TrpzNt1) + I(log(TrpzNt1)^2) + scale(as.numeric(Year)) + (1|SiteID) + (1|Year), data = data)
+
+
+```
+
+Try to add the weather covariates:
+Could replace year random effect or be covariate to year RE or 
+
+
+
+```{r}
+library(R2jags)
+library(MCMCpack)
+#Here I add weather covariates to the YEAR random variable
+
+# Specify model in BUGS language
+sink("WeatherSimple.txt")
+cat("
+    model {
+    
+    for (i in 1:n){
+      loglam[i] ~ dnorm(loglam.hat[i], tau.epsilon)
+      loglam.hat[i] <- beta1*nt1[i] + beta2*pow(nt1[i], 2) + beta3*year[i] + gamma[site[i]] + delta[year[i]]
+    }
+    tau.epsilon <- pow(sigma.epsilon, -2)
+    sigma.epsilon ~ dunif(0, 10)
+    beta1 ~ dnorm(0, 0.001)
+    beta2 ~ dnorm(0, 0.001)
+    beta3 ~ dnorm(0, 0.001)
+    
+    for (j in 1:n.site){
+      gamma[j] ~ dnorm(0, tau.gamma)
+    }
+    tau.gamma <- pow(sigma.gamma, -2)
+    sigma.gamma ~ dunif(0, 10)
+    
+    for (k in 1:n.year){
+      delta[k] ~ dnorm(delta.hat[k], tau.delta)
+      delta.hat[k] <- g.0 + g.1 * sum.yr.avg[k] + g.2 * win.yr.avg[k]
+    }
+    g.0 ~ dnorm(0, 0.001)
+    g.1 ~ dnorm(0, 0.001)
+    g.2 ~ dnorm(0, 0.001)
+    tau.delta <- pow(sigma.delta, -2)
+    sigma.delta ~ dunif(0, 10)
+    
+    }
+    
+    ",fill = TRUE)
+sink()
+
+#reassign sites and years as factors
+site.name <- as.vector(data$SiteID)
+uniq.site <- unique(site.name)
+J <- length(uniq.site)
+sites <- rep(NA, J)
+for (i in 1:J){
+  sites[site.name == uniq.site[i]] <- i
+}
+
+year.name <- as.vector(data$Year)
+sum.yr <- as.vector(data$sum.Comp.1)
+win.yr <- as.vector(data$win.Comp.1)
+uniq.year <- unique(year.name)
+K <- length(uniq.year)
+years <- rep(NA, K)
+sum.yr.avg <- rep(NA, K)
+win.yr.avg <- rep(NA, K)
+for (i in 1:K){
+  years[year.name == uniq.year[i]] <- i
+  sum.yr.avg[i] <- mean(sum.yr[year.name == uniq.year[i]])
+  win.yr.avg[i] <- mean(win.yr[year.name == uniq.year[i]])
+}
+
+n <- nrow(data)
+
+                                                                                                                                                                                                                
+j.data <- list(loglam = data$TrapLogLam, nt1 = log(data$TrpzNt1), site = sites, year = years, 
+               sum.yr.avg = sum.yr.avg, win.yr.avg = win.yr.avg, n.site = J, n.year = K, n = n)
+j.inits <- function(){
+  list(
+       beta1 = rnorm(1), 
+       beta2 = rnorm(1),
+       beta3 = rnorm(1),
+       g.0 = rnorm(1),
+       g.1 = rnorm(1),
+       g.2 = rnorm(1),
+       sigma.gamma = runif(1), 
+       sigma.delta = runif(1), 
+       sigma.epsilon = runif(1), 
+       gamma = rnorm(J), 
+       delta = rnorm(K))
+}
+j.param <- c("beta1", "beta2", "beta3", "g.0", "g.1", "g.2", "gamma", "sigma.gamma", "delta", "sigma.delta", "sigma.epsilon")
+ni <- 50000
+nt <- 10
+nb <- 10000
+nc <- 3
+
+mod1 <- jags(j.data, inits = NULL, j.param, "WeatherSimple.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+
+#Rearrange so weather covariates are more central, site effect on slopes
+
+# Specify model in BUGS language
+sink("WeatherSiteInteraction.txt")
+cat("
+    model {
+    
+    for (i in 1:n){
+      loglam[i] ~ dnorm(loglam.hat[i], tau.epsilon)
+    
+#       loglam.hat[i] <- a[site[i]] + beta1*nt1[i] + beta2*pow(nt1[i], 2) + beta3*year[i] + 
+#                       beta4[site[i]]*summer[i] + beta5[site[i]]*winter[i] + delta[year[i]]
+#   Matrix notation easier?
+
+      loglam.hat[i] <- inprod(b.0[], X.0[i,]) + inprod(B[site[i], ], X[i,])
+    }
+    tau.epsilon <- pow(sigma.epsilon, -2)
+    sigma.epsilon ~ dunif(0, 10)
+    
+    #unmodeled coefs
+    for (k in 1:K.0){  #K.0 = number of covariates unmodeled slope
+      b.0[k] ~ dnorm(0, 0.001)
+    }
+
+    for (j in 1:n.site){
+      for (k in 1:K){  #K = number of covariates with modeled slope
+        B[j,k] <- xi[k] * B.raw[j,k]
+      }
+      B.raw[j, 1:K] ~ dmnorm(mu.raw[], Tau.B.raw[,])
+    }
+    for (k in 1:K){
+      mu[k] <- xi[k] * mu.raw[k]
+      mu.raw[k] ~ dnorm(0, 0.0001)
+      xi[k] ~ dunif(0, 100)
+    }
+
+    Tau.B.raw[1:K, 1:K] ~ dwish(W[,], df)
+    df <- K+1
+    Sigma.B.raw[1:K, 1:K] <- inverse(Tau.B.raw[,])
+    for (k in 1:K){
+      for (k.prime in 1:K){
+        rho.B[k, k.prime] <- Sigma.B.raw[k, k.prime] / 
+          sqrt(Sigma.B.raw[k,k] * Sigma.B.raw[k.prime, k.prime])
+      }
+      sigma.B[k] <- abs(xi[k]) * sqrt(Sigma.B.raw[k,k])
+    }
+    
+    }
+    
+    ",fill = TRUE)
+sink()
+
+#reassign sites and years as factors
+site.name <- as.vector(data$SiteID)
+uniq.site <- unique(site.name)
+J <- length(uniq.site)
+sites <- rep(NA, J)
+for (i in 1:J){
+  sites[site.name == uniq.site[i]] <- i
+}
+# 
+year.name <- as.vector(data$Year)
+sum.yr <- as.vector(data$sum.Comp.1)
+win.yr <- as.vector(data$win.Comp.1)
+uniq.year <- unique(year.name)
+K <- length(uniq.year)
+years <- rep(NA, K)
+sum.yr.avg <- rep(NA, K)
+win.yr.avg <- rep(NA, K)
+for (i in 1:K){
+  years[year.name == uniq.year[i]] <- i
+  sum.yr.avg[i] <- mean(sum.yr[year.name == uniq.year[i]])
+  win.yr.avg[i] <- mean(win.yr[year.name == uniq.year[i]])
+}
+
+n <- nrow(data)
+
+#unmodeled covariates
+#density dependence and temporal trend over all sites
+nt1 <- scale(log(data$TrpzNt1))
+nt1sq <- nt1^2
+yr <- scale(data$Year)
+X.0 <- cbind(nt1, nt1sq, yr) #do I need a column of ones here?
+K.0 <- dim(X.0)[2]
+
+#modeled covariates, varying by site
+cov.sum <- scale(data$sum.Comp.1)
+cov.win <- scale(data$win.Comp.1)
+X <- cbind(1, cov.sum, cov.win)
+K <- dim(X)[2]
+
+W <- diag(K)
+                                                                                                                                                                                                                
+j.data <- list(loglam = data$TrapLogLam, 
+               site = sites, 
+               n.site = J, 
+               n = n,
+               X.0 = X.0,
+               X = X,
+               K.0 = K.0,
+               K = K,
+               W = W)
+
+j.inits <- function(){
+  list(
+       B.raw = array(rnorm(K * J), c(J, K)),
+       b.0 = rnorm(K.0),
+       mu.raw = rnorm(K),
+       Tau.B.raw = rwish(K+1, diag(K)),
+       xi = runif(K),
+       sigma.epsilon = runif(1))
+}
+j.param <- c("b.0", "B", "mu", "sigma.B", "sigma.epsilon", "rho.B")
+ni <- 50000
+nt <- 10
+nb <- 10000
+nc <- 3
+
+mod1 <- jags(j.data, inits = NULL, j.param, "WeatherSiteInteraction.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
+
+
+library(arm)
+#try it in lmer
+#unmodeled covariates
+#density dependence and temporal trend over all sites
+nt1 <- scale(log(data$TrpzNt1))
+nt1sq <- nt1^2
+yr <- scale(data$Year)
+
+#modeled covariates, varying by site
+cov.sum <- scale(data$sum.Comp.1)
+cov.win <- scale(data$win.Comp.1)
+
+data$Year <- as.factor(data$Year)
+
+mod2 <- lmer(TrapLogLam ~ yr + cov.sum + cov.win + (1 + cov.sum + cov.win|SiteID), data = data)
+
+mod3 <- lmer(TrapLogLam ~ nt1 + nt1sq + (1 + nt1 + nt1sq|SiteID) + (1|Year), data = data)
+
+mod4 <- lmer(TrapLogLam ~ nt1 + nt1sq + yr + (1 + yr |SiteID), data = data)
+
+mod5 <- lmer(TrapLogLam ~ nt1 + nt1sq + (1 | Year), data = data)
+
+
+```
+
+
+Quick and dirty lmer analysis for lab meeting results.
+Try species random effects on slope responses to weather covaraites, etc.
+
+```{r}
+library(data.table)
+library(lme4)
+library(arm)
+library(tidyr)
+#landuse with 1000 and 5000m buffer NMDS scores
+#scores are different at the different scales
+landuse <- readRDS('C:/Users/Tyson/REPO/NCEAS-RENCI_2014/bflyLC_NMDS.rds')
+
+cor(landuse[landuse$buffer == 5000, 10:18])
+
+#weather data
+climate <- readRDS('C:/Users/Tyson/Desktop/Box Sync/Ohio/daymet/siteDaymet.rds')
+climate <- rbindlist(climate)
+temps <- climate[, 1:3, with = FALSE]
+
+#population data
+pops <- readRDS('C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012/AllSpeciesPops.rds')
+
+#filters for population data
+#weird results with only requirement that one count (either Nt or Nt-1 nonzero)
+#this makes strange nonnormal distribution of GrowthRate as zeros exaggerate extremes
+
+pops <- pops[TrpzInd > 0 | TrpzNt1 > 0] #remove rows where both Nt and Nt-1 are zero.
+pops[, AdjLogLam := log(TrpzInd + 1) - log(TrpzNt1 + 1)]
+
+#filter by RawSum
+# pops <- pops[RawSum > 5]
+# pops <- pops[TrpzNt1 > 0]
+
+pops <- pops[complete.cases(pops)] #remove rows where Nt-1 missing
+
+#for each row of pops, add landuse and temperature data
+MergeShit <- function(row){
+  dat <- pops[row, ]
+  yr <- dat$Year
+  st <- as.numeric(as.character(dat$SiteID))
+  
+  NMDS1_1k <- landuse$NMDS1[which(landuse$site == st & landuse$buffer == 1000)]
+  NMDS1_5k <- landuse$NMDS1[which(landuse$site == st & landuse$buffer == 5000)]
+  NMDS2_1k <- landuse$NMDS2[which(landuse$site == st & landuse$buffer == 1000)]
+  NMDS2_5k <- landuse$NMDS2[which(landuse$site == st & landuse$buffer == 5000)]
+
+  prevSum <- climate$meanTemp[which(climate$site == st & climate$season == paste(yr - 1, "JJA", sep = "-"))]
+  currSum <- climate$meanTemp[which(climate$site == st & climate$season == paste(yr, "JJA", sep = "-"))]
+  winter <- climate$meanTemp[which(climate$site == st & climate$season == paste(yr - 1, "DJF", sep = "-"))]
+  fall <- climate$meanTemp[which(climate$site == st & climate$season == paste(yr - 1, "SON", sep = "-"))]
+  spring <- climate$meanTemp[which(climate$site == st & climate$season == paste(yr, "MAM", sep = "-"))]
+
+  return(data.frame(CommonName = dat$CommonName,
+                            Site = dat$SiteID,
+                            Year = dat$Year,
+                            GrowthRate = dat$AdjLogLam,
+                            Nprev = dat$TrpzNt1,
+                            N = dat$TrpzInd,
+                            NMDS1_1k = NMDS1_1k,
+                            NMDS1_5k = NMDS1_5k,
+                            NMDS2_1k = NMDS2_1k,
+                            NMDS2_5k = NMDS2_5k,
+                            prevSum = prevSum,
+                            currSum = currSum,
+                            winter = winter,
+                            fall = fall,
+                            spring = spring
+                            ))
+}
+
+allDat <- lapply(1:nrow(pops), MergeShit)
+allDat <- rbindlist(allDat)
+saveRDS(allDat, file = "data4analysis_adjLambda.rds")
+
+
+data <- readRDS("C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012/data4analysis.rds")
+
+#should try with and without years of zero population size
+data$logNprev <- scale(log(data$Nprev + 1))
+data$landcover1 <- scale(data$NMDS1_5k)
+data$landcover2 <- scale(data$NMDS2_5k)
+data$ZprevSum <- scale(data$prevSum)
+data$ZcurrSum <- scale(data$currSum)
+data$Zfall <- scale(data$fall)
+data$Zwinter <- scale(data$winter)
+data$Zspring <- scale(data$spring)
+data$YearFact <- as.factor(data$Year)
+
+
+
+mod1 <- lmer(GrowthRate ~ logNprev + landcover1 + landcover2 + (1 + logNprev + landcover1 + landcover2|CommonName), data = data)
+mod2 <- lmer(GrowthRate ~ logNprev + ZprevSum + ZcurrSum + Zwinter + Zfall + Zspring + (1 + logNprev + 
+                                     ZprevSum + ZcurrSum + Zwinter + Zfall + Zspring|CommonName), data = data)
+
+mod3 <- lmer(GrowthRate ~ logNprev + landcover1 + landcover2 +
+               ZprevSum + ZcurrSum + Zwinter + Zfall + Zspring + 
+               (1 + logNprev + landcover1 + landcover2 +
+                                     ZprevSum + ZcurrSum + Zwinter + Zfall + Zspring|CommonName), data = data)
+
+mod4 <- lmer(GrowthRate ~ logNprev*landcover1*Zwinter*landcover2 + 
+               (1 + logNprev*landcover1*Zwinter*landcover2|CommonName), data = data)
+
+#try out Gelman simple uranium model
+#one climate variable at a time interacting with landuse variable
+M3 <- lmer(GrowthRate ~ logNprev + Zwinter + (1 + Zwinter|CommonName), data = data)
+M3.5 <- lmer(GrowthRate ~ logNprev + Zwinter + (1 + logNprev + Zwinter|CommonName), data = data)
+M4 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover2 + Zwinter:landcover2 + (1 + logNprev + Zwinter|CommonName), data = data)
+
+#tons of random slopes, doesn't converge
+M6 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 +
+             I(Zwinter^2) + I(Zwinter^2):landcover1 + I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2|CommonName) + 
+             (1 + logNprev|Site), data = data)
+M7 <- lmer(GrowthRate ~ logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2 + (1|CommonName), data = data)
+
+# data$ZwinterSq <- poly(data$Zwinter, 2)[,2]
+M0 <- lmer(GrowthRate ~ logNprev + (1 + logNprev|CommonName) + (1 + logNprev|Site) + (1|YearFact), data = data)
+M1 <- lmer(GrowthRate ~ logNprev + (1 + logNprev|CommonName) + (1 + logNprev|Site), data = data)
+
+M9 <- lmer(GrowthRate ~ logNprev + (1 + logNprev|CommonName/Site) + (1|YearFact), data = data)
+
+
+M2 <- lmer(GrowthRate ~ logNprev + Zwinter + 
+             I(Zwinter^2) +
+             (1 + logNprev + Zwinter + I(Zwinter^2)|CommonName) + (1|Site), data = data)
+M2.5 <- lmer(GrowthRate ~ logNprev + Zwinter + 
+             ZwinterSq +
+             (1 + logNprev + Zwinter + ZwinterSq|CommonName) + (1|Site), data = data)
+M3 <- lmer(GrowthRate ~ logNprev + Zwinter + 
+             I(Zwinter^2) +
+             (1 + logNprev + Zwinter + I(Zwinter^2)|CommonName) + (1 + logNprev|Site), data = data)
+M4 <- lmer(GrowthRate ~ logNprev + Zwinter + 
+             I(Zwinter^2) +
+             (1 + logNprev + Zwinter + I(Zwinter^2)|CommonName) + 
+             (1 + logNprev + Zwinter + I(Zwinter^2)|Site), data = data)
+
+M9 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2|CommonName) +  
+             (1 + logNprev + Zwinter + I(Zwinter^2)|Site), data = data)
+
+
+Z1 <- lm(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2, data = data)
+Z2 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + (1|CommonName), data = data)
+Z3 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + (1 + logNprev|CommonName), data = data)
+Z4 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             (1 + logNprev + Zwinter + landcover1 + landcover2|CommonName), data = data)
+
+#compare random effects with saturated fixed effects (via Zuur)
+Z5 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2|CommonName), data = data)
+
+Z6 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+Z7 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2)+ landcover1 + landcover2|CommonName) + (1|Site), data = data)
+
+M9 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2|CommonName) +  
+             (1 + logNprev + Zwinter + I(Zwinter^2)|Site), data = data)
+
+Z6.1 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + I(Zwinter^2)|CommonName) + (1 + logNprev|Site), data = data)
+  
+Z6.2 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+  
+Z6.3 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter|CommonName) + (1 + logNprev|Site), data = data)
+
+Z6.4 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + landcover1 + landcover2 + I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2|CommonName) + (1 + logNprev|Site), data = data)
+  
+Z6.5 <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + landcover1 + landcover2 + I(Zwinter^2) + I(Zwinter^2):landcover1 + 
+                I(Zwinter^2):landcover2|CommonName) + (1 + logNprev + Zwinter + I(Zwinter^2)|Site), data = data)
+
+AIC(Z5, Z6, Z7, M9, Z6.1, Z6.2, Z6.3, Z6.4, Z6.5)
+
+
+library(MuMIn)
+null.mod <- lmer(GrowthRate ~ 
+             (1|CommonName) + (1|Site), data = data)
+no.temp.mod <- lmer(GrowthRate ~ logNprev +
+             (1|CommonName) + (1|Site), data = data)
+
+r.squaredGLMM(M9)
+r.squaredGLMM(null.mod)
+r.squaredGLMM(no.temp.mod)
+
+
+glob.R2 <- r.squaredLR(Z6.2, null.mod)
+r.squaredLR(no.temp.mod, null.mod)
+r.squaredLR(Z6.2, no.temp.mod)
+
+
+
+#Use random structure from Z6.2
+#try other seasons
+
+winter <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+winter_nosite <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + landcover1 + landcover2|CommonName), data = data)
+
+winter_nolc <- lmer(GrowthRate ~ logNprev + Zwinter + 
+             I(Zwinter^2) + 
+             (1 + logNprev + Zwinter|CommonName) + (1 + logNprev|Site), data = data)
+
+winter.pool <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev|Site), data = data)
+
+
+spring <- lmer(GrowthRate ~ logNprev + Zspring + landcover1 + landcover2 + Zspring:landcover1 + Zspring:landcover2 + 
+             I(Zspring^2) + I(Zspring^2):landcover1 +I(Zspring^2):landcover2 +
+             (1 + logNprev + Zspring + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+currSum <- lmer(GrowthRate ~ logNprev + ZcurrSum + landcover1 + landcover2 + ZcurrSum:landcover1 + ZcurrSum:landcover2 + 
+             I(ZcurrSum^2) + I(ZcurrSum^2):landcover1 +I(ZcurrSum^2):landcover2 +
+             (1 + logNprev + ZcurrSum + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+prevSum <- lmer(GrowthRate ~ logNprev + ZprevSum + landcover1 + landcover2 + ZprevSum:landcover1 + ZprevSum:landcover2 + 
+             I(ZprevSum^2) + I(ZprevSum^2):landcover1 +I(ZprevSum^2):landcover2 +
+             (1 + logNprev + ZprevSum + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+fall <- lmer(GrowthRate ~ logNprev + Zfall + landcover1 + landcover2 + Zfall:landcover1 + Zfall:landcover2 + 
+             I(Zfall^2) + I(Zfall^2):landcover1 +I(Zfall^2):landcover2 +
+             (1 + logNprev + Zfall + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+allseasons <- lmer(GrowthRate ~ logNprev +  ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
+                    landcover1 + landcover2 + ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
+                     ZcurrSum:landcover1 + Zspring:landcover1 + Zwinter:landcover1 + Zfall:landcover1 +  ZprevSum:landcover1 + 
+                     ZcurrSum:landcover2 + Zspring:landcover2 + Zwinter:landcover2 + Zfall:landcover2 +  ZprevSum:landcover2 + 
+                      I(ZcurrSum^2) + I(Zspring^2) + I(Zwinter^2) + I(Zfall^2) +  I(ZprevSum^2) +
+             (1 + logNprev + ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + landcover1 + landcover2|CommonName) + 
+               (1 + logNprev|Site), data = data, optCtrl=list(maxfun=1e6))
+
+
+r.squaredGLMM(allseasons)
+
+#try at different landcover scale
+
+winter1k <- lmer(GrowthRate ~ logNprev + Zwinter + landcover1 + landcover2 + Zwinter:landcover1 + Zwinter:landcover2 + 
+             I(Zwinter^2) + I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (1 + logNprev + Zwinter + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+spring1k <- lmer(GrowthRate ~ logNprev + Zspring + landcover1 + landcover2 + Zspring:landcover1 + Zspring:landcover2 + 
+             I(Zspring^2) + I(Zspring^2):landcover1 +I(Zspring^2):landcover2 +
+             (1 + logNprev + Zspring + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+currSum1k <- lmer(GrowthRate ~ logNprev + ZcurrSum + landcover1 + landcover2 + ZcurrSum:landcover1 + ZcurrSum:landcover2 + 
+             I(ZcurrSum^2) + I(ZcurrSum^2):landcover1 +I(ZcurrSum^2):landcover2 +
+             (1 + logNprev + ZcurrSum + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+prevSum1k <- lmer(GrowthRate ~ logNprev + ZprevSum + landcover1 + landcover2 + ZprevSum:landcover1 + ZprevSum:landcover2 + 
+             I(ZprevSum^2) + I(ZprevSum^2):landcover1 +I(ZprevSum^2):landcover2 +
+             (1 + logNprev + ZprevSum + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+fall1k <- lmer(GrowthRate ~ logNprev + Zfall + landcover1 + landcover2 + Zfall:landcover1 + Zfall:landcover2 + 
+             I(Zfall^2) + I(Zfall^2):landcover1 +I(Zfall^2):landcover2 +
+             (1 + logNprev + Zfall + landcover1 + landcover2|CommonName) + (1 + logNprev|Site), data = data)
+
+r.squaredGLMM(winter1k)
+r.squaredGLMM(spring1k)
+r.squaredGLMM(currSum1k)
+r.squaredGLMM(prevSum1k)
+r.squaredGLMM(fall1k)
+
+
+weather_simple <- lmer(GrowthRate ~ logNprev +  ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
+             (1 + logNprev + ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum|CommonName) + 
+               (1 + logNprev|Site), data = data, control = lmerControl(optCtrl=list(maxfun=1e6)))
+
+weather <- lmer(GrowthRate ~ logNprev +  ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
+                      I(ZcurrSum^2) + I(Zspring^2) + I(Zwinter^2) + I(Zfall^2) +  I(ZprevSum^2) +
+             (1 + logNprev + ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
+                 I(ZcurrSum^2) + I(Zspring^2) + I(Zwinter^2) + I(Zfall^2) +  I(ZprevSum^2)|CommonName) + 
+               (1 + logNprev|Site), data = data, control = lmerControl(optCtrl=list(maxfun=1e6)))
+
+#best model! Let each species have a random slope for each year!
+landcover <- lmer(GrowthRate ~ logNprev +   
+                    (1 + logNprev + YearFact|CommonName) + 
+               (1 + logNprev|Site), data = data, control = lmerControl(optCtrl=list(maxfun=1e6)))
+
+landcover_simple <- lmer(GrowthRate ~ logNprev + landcover1 + landcover2 + I(landcover1^2) + I(landcover2^2) +
+                    (1 + landcover1 + landcover2 + logNprev|CommonName) + (1 + landcover1 + landcover2|YearFact) +
+               (1 + logNprev|Site), data = data, control = lmerControl(optCtrl=list(maxfun=1e6)))
+
+
+library(ggplot2)
+library(lme4)
+library(multcomp)
+set.seed(101)
+dataset <- expand.grid(experiment = factor(seq_len(10)), 
+    status = factor(c("N", "D", "R"), levels = c("N", "D", "R")), 
+    reps = seq_len(10))
+X <- model.matrix(~status,dataset)
+dataset <- transform(dataset, 
+    value=rnorm(nrow(dataset), sd = 0.23) +   ## residual
+    rnorm(length(levels(experiment)), sd = 0.256)[experiment] +  ## block effects
+    X %*% c(2.78,0.205,0.887))  ## fixed effects
+
+model <- lmer(value~status+(1|experiment), data = dataset)
+
+library(coefplot2)
+coefplot2(model)
+
+library(sjPlot)
+sjp.setTheme(theme = theme_classic())
+
+
+sjt.lmer(weather, file = "weather.html")
+r.squaredGLMM(weather)
+
+
+sjp.lmer(weather,facet.grid = FALSE,
+         sort.coef = "sort.all")
+sjp.lmer(weather, "coef")
+
+sjp.lmer(weather, type = "poly", poly.term = "Zwinter")
+sjp.int(winter, type = "eff")
+
+
+library(lmerTest)
+
+
+
+
+display(M5)
+
+coef (M3)
+fixef (M4)
+ranef (M5)
+
+#FROM GELMAN CODE
+## Varying intercept & slopes w/ no group level predictors
+# M3 <- lmer (y ~ x + (1 + x | county))
+display (M3)
+
+coef (M3)
+fixef (M3)
+ranef (M3)
+
+ # plots on Figure 13.1
+a.hat.M3 <- fixef(M3)[1] + ranef(M3)$CommonName[,1] 
+b.hat.M3 <- fixef(M3)[3] + ranef(M3)$CommonName[,2]
+
+J <- 67
+b.hat.unpooled.varying <- array (NA, c(J,3))
+for (j in 1:J){
+  sp <- species[j]
+  lm.unpooled.varying <- lm (GrowthRate ~ logNprev + Zwinter, data = data[data$CommonName == sp, ])
+  b.hat.unpooled.varying[j,] <- coef(lm.unpooled.varying)
+}
+
+lm.pooled <- lm (GrowthRate ~ logNprev + Zwinter, data = data)
+
+par (mfrow=c(2,4), mar=c(4,4,3,1), oma=c(1,1,2,1))
+for (j in 1:8){
+  sp <- species[j]
+  plot (data$Zwinter[data$CommonName==sp], data$GrowthRate[data$CommonName==sp], xlim=c(-.05,1.05), ylim=y.range,
+    xlab="floor", ylab="log radon level", cex.lab=1.2, cex.axis=1.1,
+    pch=20, mgp=c(2,.7,0), xaxt="n", yaxt="n", cex.main=1.1, main=uniq[j])
+  axis (1, c(0,1), mgp=c(2,.7,0), cex.axis=1.1)
+  axis (2, seq(-1,3,2), mgp=c(2,.7,0), cex.axis=1.1)
+  curve (coef(lm.pooled)[1] + coef(lm.pooled)[2]*x, lwd=.5, lty=2, col="gray10", add=TRUE)
+  curve (b.hat.unpooled.varying[j,1] + b.hat.unpooled.varying[j,2]*x, lwd=.5, col="gray10", add=TRUE)
+  curve (a.hat.M3[j] + b.hat.M3[j]*x, lwd=1, col="black", add=TRUE)
+}
+
+## Including group level predictors
+M4 <- lmer (y ~ x + u.full + x:u.full + (1 + x | county))
+display (M4)
+
+coef (M4)
+fixef (M4)
+ranef (M4)
+
+a.hat.M4 <- fixef(M4)[1] + fixef(M4)[3]*u + ranef(M4)$county[,1]
+b.hat.M4 <- fixef(M4)[2] + fixef(M4)[4]*u + ranef(M4)$county[,2]
+a.se.M4 <- se.ranef(M4)$county[,1]
+b.se.M4 <- se.ranef(M4)$county[,2]
+
+ # plot on Figure 13.2(a)
+lower <- a.hat.M4 - a.se.M4
+upper <- a.hat.M4 + a.se.M4
+par (mar=c(5,5,4,2)+.1)
+plot (u, a.hat.M4, cex.lab=1.2, cex.axis=1.1, ylim=range(lower,upper), 
+      xlab="county-level uranium measure", ylab="regression intercept", 
+      pch=20, yaxt="n")
+axis (2, c(0,1,1.5,2))
+curve (fixef(M4)[1] + fixef(M4)[3]*x, lwd=1, col="black", add=TRUE)
+segments (u, lower, u, upper, lwd=.5, col="gray10")
+mtext ("Intercepts", line=1)
+
+ # plot on Figure 13.2(b)
+lower <- b.hat.M4 - b.se.M4
+upper <- b.hat.M4 + b.se.M4
+par (mar=c(5,5,4,2)+.1)
+plot (u, b.hat.M4, cex.lab=1.2, cex.axis=1.1, ylim=range(lower,upper),
+      xlab="county-level uranium measure", ylab="regression slope", pch=20)
+curve (fixef(M4)[2] + fixef(M4)[4]*x, lwd=1, col="black", add=TRUE)
+segments (u, lower, u, upper, lwd=.5, col="gray10")
+mtext ("Slopes", line=1)
+
+```
+
+
+
+
+Try out ideas of Gelman multilevel "factor analysis". First just with climate.
+Doesn't really work, no effect of any climate variables in factor.
+
+
+```{r factors}
+
+
+
+
+#Try same thing, but with log growth rate as normal response
+#quadratic density dependence like Dooley 2013
+
+# Specify model in BUGS language
+sink("WeatherFactor.txt")
+cat("
+    model {
+    
+    for (i in 1:n){
+      loglam[i] ~ dnorm(loglam.hat[i], tau.epsilon)
+      loglam.hat[i] <- mu + beta1*nt1[i] + beta2*pow(nt1[i], 2) + beta3*year[i] + beta4*wavg[i]
+    
+      wavg[i] <- (1 / 6) * (omega[1] * X[i, 1] + 
+                 omega[2] * X[i, 2] + 
+                 omega[3] * X[i, 3] + 
+                 omega[4] * X[i, 4] + 
+                 omega[5] * X[i, 5] + 
+                 omega[6] * X[i, 6] )
+    
+    }
+    mu ~ dnorm(0, 0.001)
+    tau.epsilon <- pow(sigma.epsilon, -2)
+    sigma.epsilon ~ dunif(0, 10)
+    beta1 ~ dnorm(0, 0.001)
+    beta2 ~ dnorm(0, 0.001)
+    beta3 ~ dnorm(0, 0.001)
+    beta4 ~ dnorm(0, 0.001)
+    
+#     for (j in 1:n.site){
+#       gamma[j] ~ dnorm(0, tau.gamma)
+#     }
+#     tau.gamma <- pow(sigma.gamma, -2)
+#     sigma.gamma ~ dunif(0, 10)
+
+    for (k in 1:n.X){
+      omega[k] ~ dnorm(0, tau.omega)
+    }
+    tau.omega <- pow(sigma.omega, -2)
+    sigma.omega  <- 0.3
+    
+    }
+    
+    ",fill = TRUE)
+sink()
+
+#reassign sites and years as factors
+site.name <- as.vector(data$SiteID)
+uniq.site <- unique(site.name)
+J <- length(uniq.site)
+sites <- rep(NA, J)
+for (i in 1:J){
+  sites[site.name == uniq.site[i]] <- i
+}
+
+year.name <- as.vector(data$Year)
+uniq.year <- unique(year.name)
+K <- length(uniq.year)
+years <- rep(NA, K)
+for (i in 1:K){
+  years[year.name == uniq.year[i]] <- i
+}
+
+n <- nrow(data)
+
+#weather covariates to weight
+X.df <- data[, c("sum.Comp.1", "win.Comp.1", "prev.sum.Comp.1")]
+X <- cbind(poly(X.df$sum.Comp.1, 2, raw = TRUE), 
+           poly(X.df$win.Comp.1, 2, raw = TRUE), 
+           poly(X.df$prev.sum.Comp.1, 2, raw = TRUE))
+n.X <- dim(X)[2]
+                                                                                                                                                                                                                
+j.data <- list(loglam = data$TrapLogLam, nt1 = log(data$TrpzNt1), 
+               year = years, n = n, X = X, n.X = n.X)
+j.inits <- function(){
+  list(mu = rnorm(1), 
+       beta1 = rnorm(1), 
+       beta2 = rnorm(1),
+       beta3 = rnorm(1),
+       beta4 = rnorm(1), 
+#        sigma.gamma = runif(1), 
+#        sigma.omega = runif(1), 
+       sigma.epsilon = runif(1))
+#        gamma = rnorm(J)) 
+}
+j.param <- c("mu", "beta1", "beta2", "beta3", "beta4", "omega", "sigma.epsilon")
+ni <- 100000
+nt <- 10
+nb <- 25000
+nc <- 3
+
+mod4 <- jags(j.data, inits = j.inits, j.param, "WeatherFactor.txt", n.chains = nc, 
+             n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+
