@@ -329,14 +329,26 @@ for (i in 1:nsites){
 Maybe try multispecies model with simple site/year random effects as baseline before adding the weather and landuse covariates. See if it can converge before complicating more.
 
 ```{r multispecies jags}
+
+checklist <- read.csv("C:/Users/Tyson/Desktop/Box Sync/Ohio/jan2014/Checklist.csv", header = TRUE)
+checklist <- checklist[, c("CheckListKey", "CommonName")]
+names(checklist)[1] <- "Species"
+checklist <- rbind(checklist, data.frame(Species = 4363, CommonName = "Azures"))
+load("C:/Users/Tyson/Desktop/Box Sync/Ohio/jan2014/populations/all.species.data.RData")
+names(all.species.env)[c(1,2,5)] <- c("SiteID", "Year", "Species")
+
 data <- readRDS(file = "AllSpeciesPops.rds")
 data <- merge(data, checklist, by = "CommonName", all.x = TRUE, all.y = FALSE, allow.cartesian = TRUE)
 data <- merge(data, all.species.env, by = c("SiteID", "Year", "Species"))
 
-
 JAGSdat <- data[, c(1, 2, 4, 5, 9, 15, 16), with = FALSE]
 JAGSdat$TrpzInd <- round(JAGSdat$TrpzInd)
 JAGSdat$TrpzNt1 <- round(JAGSdat$TrpzNt1)
+
+SpeciesList <- readRDS(file = "C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012/SpeciesList.rds")
+species <- as.character(SpeciesList$CommonName)
+species[4] <- "Azures"
+species <- species[1:68] 
 
 # choose species
 spec_sel <- SpeciesList[c(10:20), "CommonName"]

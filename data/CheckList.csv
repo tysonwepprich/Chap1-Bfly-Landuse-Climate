@@ -1,0 +1,188 @@
+CheckListKey,Genus,Species,Subspecies,CombinedLatin,CommonName,Show,NWquadrant,NEquadrant,SWquadrant,SEquadrant,Kind,Revised,Author,Year,Changed,By,Comment,CountTotal,Countys,Endangered,Synonym,Family,GCKey,grp,SortOrder,tmp_SitesReporting,tmp_TotalCount,tmp_HighCountSite,tmp_HighCount,tmp_HighCountDate,tmp_HighCtyAbbr
+3870  a,Epargyreus,clarus,clarus,Epargyreus clarus clarus,Silver-spotted Skipper,TRUE,,,,,S,T,Cramer,1775,,,,39221,114,"res., common",,40,40,0,007  a,70,3004,Kitty Todd Nature Preserve,37,8/13/2011,Luca
+3886,Urbanus,proteus,,Urbanus proteus,Long-tailed Skipper,TRUE,N,N,N,N,S,T,Linnaeus,1758,,,,3,2,"stray, rare",,40,40,0,024,0,0,,0,,Fran
+3902,Autochton,cellus,,Autochton cellus,Gold-banded Skipper,TRUE,N,N,N,,S,T,Boisduval & LeConte,1837,,,,15,3,"res., uncommon to rare",,40,40,0,040,1,4,Shawnee Bridle Trail #5 - SE,4,6/3/2011,Cler
+3904,Achalarus,lyciades,,Achalarus lyciades,Hoary Edge Skipper,TRUE,,,,,S,T,Geyer,1832,,,,161,21,"res., uncommon, localized pops.",,40,40,0,042,11,52,Shawnee Bridal Trail #5 - NW,13,6/3/2011,Scit
+3909,Thorybes,bathyllus,,Thorybes bathyllus,Southern Cloudywing,TRUE,,,,,S,T,J. E. Smith,1797,,,,374,27,"res., uncommon to common, southernly",,40,40,0,047,7,68,Moseley Barrens/Kitty Todd,11,6/18/2011,Luca
+3910,Thorybes,pylades,,Thorybes pylades,Northern Cloudywing,TRUE,,,,,S,T,Scudder,1870,,,,328,33,"res., uncommon to common",,40,40,0,048,7,28,Shawnee Bridal Trail #5 - NW,8,6/3/2011,Scit
+3913,Thorybes,confusis,,Thorybes confusis,Confused Cloudywing,FALSE,N,N,N,N,S,F,Bell,1922,,,,0,0,"possible res., rare",,40,40,0,051,,,,,,
+3932,Staphylus,hayhurstii,,Staphylus hayhurstii,Hayhurst's Scallopwing,TRUE,N,N,,N,S,T,W. H. Edwards,1870,,,,23,4,"res., rare to uncommon, southernly",Southern Sootywing,40,40,0,070,2,4,Jude's Butterfly Trail,2,8/13/2011,Mont
+3945,Erynnis,icelus,,Erynnis icelus,Dreamy Duskywing,TRUE,,,,,S,T,Scudder & Burgess,1870,,,,610,36,"res., uncommon to common, southernly",,40,40,0,083,8,23,Oak Openings-Campbell Prairie,4,5/22/2011,Luca
+3946,Erynnis,brizo,brizo,Erynnis brizo brizo,Sleepy Duskywing,TRUE,,,,,S,T,Boisduval & LeConte,1834,,,,566,24,"res., uncommon to common, southernly",,40,40,0,084  a,6,35,Oak Openings-Campbell Prairie,6,5/13/2011,Luca
+3947,Erynnis,juvenalis,juvenalis,Erynnis juvenalis juvenalis,Juvenal's Duskywing,TRUE,,,,,S,T,Fabricius,1793,,,,2497,61,"res., common",,40,40,0,085  a,21,179,Shawnee Bridal Trail #5 - NW,48,4/14/2011,Scit
+3952,Erynnis,horatius,,Erynnis horatius,Horace's Duskywing,TRUE,,,,,S,T,Scudder & Burgess,1870,,,,1279,59,"res., uncommon, southernly",,40,40,0,090,15,106,Kitty Todd Nature Preserve,7,7/15/2011,Luca
+3954,Erynnis,martialis,,Erynnis martialis,Mottled Duskywing,TRUE,N,N,,,S,T,Scudder,1869,,,,4,3,"res., rare, localized pops.",,40,40,0,092,0,0,,0,,Hock
+3956,Erynnis,zarucco,,Erynnis zarucco,Zarucco Duskywing,FALSE,,,,,S,T,Lucas,1857,,,,0,0,Species of possible occurrence in Ohio,,,,,094,0,0,,0,,
+3957,Eyrnnis,funeralis,,Eyrnnis funeralis,Funereal Duskywing,FALSE,,,,,S,T,Scudder & Burgess,1870,,,,0,0,Species of possible occurrence in Ohio,,,,,095,0,0,,0,,
+3958,Erynnis,lucilius,,Erynnis lucilius,Columbine Duskywing,FALSE,,,,,S,T,Scudder & Burgess,1870,,,,0,0,"possible res., rare",,40,40,0,096,,,,,,
+3959,Erynnis,baptisiae,,Erynnis baptisiae,Wild Indigo Duskywing,TRUE,,,,,S,T,Forbes,1936,,,,9611,60,"res., uncommon to common",,40,40,0,097,31,1344,Dike 14 NP-Cleve.Lakefront NP,75,8/26/2011,Cuyh
+3961,Erynnis,persius,persius,Erynnis persius persius,Persius Duskywing,TRUE,,,N,N,S,T,Scudder,1863,,,,7,3,"ENDANGERED, res., rare, localized",,40,40,0,099  a,0,0,,0,,Luca
+3962  b,Pyrgus,centaureae,wyandot,Pyrgus centaureae wyandot,Grizzled Skipper,FALSE,N,N,N,,S,T,W. H. Edwards,1863,,,,0,0,"res., rare, localized pops. @ low densities",,40,40,0,100  b,,,,,,
+3966,Pyrgus,communis,,Pyrgus communis,Common Checkered-Skipper,TRUE,,,,,S,T,Grote,1872,,,,2185,49,"regular immigrant, uncommon to rare, southernly",,40,40,0,104,25,325,Jude's Butterfly Trail,57,8/27/2011,Mont
+3977,Pholisora,catullus,,Pholisora catullus,Common Sooty Wing,TRUE,,,,,S,T,Fabricius,1793,,,,917,62,"res., common",,40,40,0,115,15,58,Kiser Lake State Park-1 & 2,6,9/12/2011,Cham
+3993,Nastra,lherminier,,Nastra lherminier,Swarthy Skipper,TRUE,N,N,,,S,T,Latreille,1824,,,,184,20,"res., uncommon to rare, southernly",,40,40,0,131,3,16,Grant Park,7,8/15/2011,Mont
+3998,Lerema,accius,,Lerema accius,Clouded Skipper,FALSE,,,,,S,T,J. E. Smith,1797,,,,0,0,Species of possible occurrence in Ohio,,,,,136,0,0,,0,,
+4004,Ancyloxypha,numitor,,Ancyloxypha numitor,Least Skipper,TRUE,,,,,S,T,Fabricius,1793,,,,18369,101,"res., common",,40,40,0,142,54,1552,Naturealm,72,6/11/2011,Summ
+4010,Copaeodes,minimus,,Copaeodes minimus,Southern Skipperling,FALSE,,,,,S,T,W. H. Edwards,1870,,,,0,0,"stray or transported, rare",,40,40,0,148,,,,,,
+4012,Thymelicus,lineola,,Thymelicus lineola,European Skipper,TRUE,,,,,S,T,Ochsenheimer,1808,,,,43792,83,"naturalized res., common, northernly",,40,40,0,150,23,2442,Pine Hollow,964,6/11/2011,Summ
+4013,Hylephila,phyleus,phyleus,Hylephila phyleus phyleus,Fiery Skipper,TRUE,,,,,S,T,Drury,1773,,,,1612,77,"regular immigrant, uncommon to rare, southernly",,40,40,0,151  a,31,179,Pententiary Glen,13,8/27/2011,Lake
+4023,Hesperia,leonardus,leonardus,Hesperia leonardus leonardus,Leonard's Skipper,TRUE,,,,,S,F,Harris,1862,,,,993,21,"res., uncommon to rare, southernly",,40,40,0,161  a,6,121,Moseley Barrens/Kitty Todd,32,8/27/2011,Luca
+4027,Hesperia,metea,metea,Hesperia metea metea,Cobweb Skipper,TRUE,N,N,N,,S,F,Scudder,1864,,,,3,1,"res., uncommon to rare",,40,40,0,165  a,1,3,Lynx Prairie,3,5/11/2011,Adam
+4033,Hesperia,sassacus,sassacus,Hesperia sassacus sassacus,Indian Skipper,TRUE,N,,N,,S,F,Harris,1862,,,,78,13,"res., uncommon, northeasternly",,40,40,0,171  a,0,0,,0,,Port
+4036,Polites,peckius,,Polites peckius,Peck's Skipper,TRUE,,,,,S,T,Kirby,1837,,,,16556,102,"res., common",P. coras,40,40,0,174,44,954,Greenway Corridor North,39,8/12/2011,Lake
+4041,Polites,themistocles,,Polites themistocles,Tawny-edged Skipper,TRUE,,,,,S,T,Latreille,1824,,,,1473,68,"res., common",,40,40,0,179,21,153,Moseley Barrens/Kitty Todd,14,7/3/2011,Luca
+4042,Polites,origenes,origenes,Polites origenes origenes,Crossline Skipper,TRUE,,,,,S,T,Fabricius,1793,,,,705,48,"res., uncommon",,40,40,0,180  a,16,61,Top Of The World,6,6/30/2011,Summ
+4043,Polites,mystic,mystic,Polites mystic mystic,Long Dash,TRUE,,,N,N,S,T,W. H. Edwards,1863,,,,1030,35,"res., uncommon, northernly, localized",,40,40,0,181  a,11,91,Pine Hollow,38,6/4/2011,Summ
+4045,Polites,vibex,vibex,Polites vibex vibex,Whirlabout,FALSE,,,,,S,T,Geyer,1832,,,,0,0,Species of possible occurrence in Ohio,,40,40,0,183  a,,,,,,
+4046,Wallengrenia,otho,otho,Wallengrenia otho otho,Southern Broken-Dash,FALSE,,,,,S,T,Smith,1797,,,,0,0,Species of possible occurrence in Ohio,,,,,184,0,0,,0,,
+4047,Wallengrenia,egeremet,,Wallengrenia egeremet,Northern Broken-Dash,TRUE,,,,,S,T,Scudder,1864,,,,3986,66,"res., uncommon to common",,40,40,0,185,20,433,Moseley Barrens/Kitty Todd,50,7/8/2011,Luca
+4048,Pompeius,verna,,Pompeius verna,Little Glassy Wing,TRUE,,,,,S,T,W. H. Edwards,1862,,,,6076,77,"res., uncommon, southernly, localized",,40,40,0,186,34,245,Naturealm,28,7/23/2011,Summ
+4049  a,Atalopedes,campestris,huron,Atalopedes campestris huron,Sachem,TRUE,N,N,,,S,T,W. H. Edwards,1863,,,,669,34,"regular immigrant, rare to uncommon, southernly",,40,40,0,187  b,3,4,Pine Hollow,2,6/4/2011,Summ
+4050  a,Atrytone,arogos,iowa,Atrytone arogos iowa,Arogos Skipper,FALSE,,,,,S,T,Scudder,1869,,,,0,0,Species of possible occurrence in Ohio,,,,,188  b,0,0,,0,,
+4051,Atrytone,logan,logan,Atrytone logan logan,Delaware Skipper,TRUE,,,,,S,T,W. H. Edwards,1863,,,,551,53,"res., uncommon, localized pops.","Anatrytone l. l., A. delaware delaware",40,40,0,189  a,13,43,Moseley Barrens/Kitty Todd,5,7/3/2011,Luca
+4052,Problema,byssus,,Problema byssus,Byssus Skipper,FALSE,,,,,S,T,W. H. Edwards,1880,,,,0,0,Species of possible occurrence in Ohio,,,,,190  a,0,0,,0,,
+4058,Poanes,massasoit,massasoit,Poanes massasoit massasoit,Mulberry Wing,TRUE,,N,N,N,S,T,Scudder,1864,,,,27,2,"res., uncommon, localized",,40,40,0,196  a,0,0,,0,,Cham
+4059,Poanes,hobomok,hobomok,Poanes hobomok hobomok,Hobomok Skipper,TRUE,,,,,S,T,Harris,1862,,,,5367,78,"res., uncommon to common",Northern Golden Skipper,40,40,0,197  a,30,221,Lakeshore Reservation,38,6/4/2011,Lake
+4060,Poanes,zabulon,,Poanes zabulon,Zabulon Skipper,TRUE,,,,,S,T,Boisduval & LeConte,1834,,,,6637,90,"res., common to uncommon, central to southernly",Southern Golden Skipper,40,40,0,198,43,384,East Fork State Pk-Horseman's,12,5/24/2011,Cler
+4064,Poanes,viator,viator,Poanes viator viator,Broad-winged Skipper,TRUE,,,N,N,S,T,W. H. Edwards,1865,,,,2353,12,"res., uncommon",,40,40,0,202 a,4,1167,Mentor Marsh,809,7/24/2011,Lake
+4072,Euphyes,dion,,Euphyes dion,Dion Skipper,TRUE,,,N,N,S,T,W. H. Edwards,1879,,,,26,8,"res, uncommon to common",,40,40,0,210,2,5,Davidson Butterfly Preserve,3,7/13/2011,Delw
+4074,Euphyes,dukesi,,Euphyes dukesi,Duke's Skipper,TRUE,,N,N,N,S,T,Lindsey,1923,,,,65,6,"res., uncommon, localized pops.",,40,40,0,212,2,12,Davidson Butterfly Preserve,7,7/23/2011,Delw
+4075,Euphyes,conspicuus,conspicuus,Euphyes conspicuus conspicuus,Black Dash,TRUE,,,N,N,S,T,W. H. Edwards,1863,,,,82,17,"res., uncommon, northernly",,40,40,0,213  a,4,6,Camp Asbury,2,7/9/2011,Port
+4077,Euphyes,bimacula,bimacula,Euphyes bimacula bimacula,Two-spotted Skipper,TRUE,,,N,N,S,T,Grote & Robinson,1867,,,,0,0,"res., rare, localized @ low densities",,40,40,0,216  a,0,0,,0,,Pick
+4078  a,Euphyes,vestris,metacomet,Euphyes vestris metacomet,Dun Skipper,TRUE,,,,,S,T,Harris,1862,,,,1038,71,"res., common",E. ruricola m.,40,40,0,217  b,22,56,Blacklick Park,5,6/27/2011,Fran
+4080,Atrytonopsis,hianna,hianna,Atrytonopsis hianna hianna,Dusted Skipper,TRUE,N,N,,,S,T,Scudder,1868,,,,46,5,"res., uncommon",,40,40,0,219  a,3,26,Moseley Barrens/Kitty Todd,9,6/4/2011,Luca
+4096,Amblyscirtes,hegon,,Amblyscirtes hegon,Pepper and Salt Skipper,TRUE,N,N,,,S,T,Scudder,1864,,,,24,8,"res., uncommon to rare",,40,40,0,235,4,5,Clear Creek - Creekside,1,7/1/2011,Hock
+4099,Amblyscirtes,aesculapius,,Amblyscirtes aesculapius,Lace-winged Roadside-Skipper,FALSE,,,,,S,T,Fabricius,1793,,,,0,0,Species of possible occurrence in Ohio,,,,,239,0,0,,0,,
+4105,Amblyscirtes,vialis,,Amblyscirtes vialis,Common Roadside Skipper,TRUE,,,,,S,T,W. H. Edwards,1862,,,,118,15,"res., common to uncommon, southeasterly",,40,40,0,245,4,9,Stages Pond Nature Preserve,3,7/12/2011,Pick
+4107,Amblyscirtes,belli,,Amblyscirtes belli,Bell's Roadside-Skipper,FALSE,,,,,S,F,H.A. Freeman,1941,,,,0,0,"possible resident, rare",,40,40,0,247,,,,,,
+4111,Lerodea,eufala,,Lerodea eufala,Eufala Skipper,TRUE,,,,,S,T,W. H. Edwards,1869,,,,0,0,"stray, rare",,40,40,0,251,0,0,,0,,Lick
+4115,Calpodes,ethlius,,Calpodes ethlius,Brazilian Skipper,FALSE,,,,,S,T,Stoll,1782,,,,0,0,"transported or stray, rare",,40,40,0,255,,,,,,
+4119,Panoquina,ocola,,Panoquina ocola,Ocola Skipper,TRUE,N,N,N,N,S,T,W. H. Edwards,1863,,,,28,10,"irregular immigrant or stray, rare",,40,40,0,259,0,0,,0,,Lake
+4157,Battus,philenor,philenor,Battus philenor philenor,Pipevine Swallowtail,TRUE,,,,,B,T,Linnaeus,1771,,,,442,46,"res., uncommon to common, southernly",,41,40,0,297  a,16,52,Blue Rock State Forest,7,7/27/2011,Musk
+4159  a,Papilio,polyxenes,asterius,Papilio polyxenes asterius,Black Swallowtail,TRUE,,,,,B,F,Stoll,1782,,,,8656,110,"res., common",,41,40,0,303  a,57,899,Dike 14 NP-Cleve.Lakefront NP,28,6/4/2011,Cuyh
+4160,Papilio,joanae,,Papilio joanae,Ozark Swallowtail,FALSE,,,,,B,F,J. R. Heitzman,1974,,,,0,0,Species of possible occurrence in Ohio,Missouri Woodland Swallowtail,,,,304,0,0,,0,,
+4170,Papilio,cresphontes,,Papilio cresphontes,Giant Swallowtail,TRUE,,,,,B,F,Cramer,1777,,,,804,53,"res., uncommon, glaciated areas",Papilio c.,41,40,0,314,23,61,Battelle-Darby Creek-So/Ancien,5,7/28/2011,Fran
+4176,Papilio,glaucus,glaucus,Papilio glaucus glaucus,Eastern Tiger Swallowtail,TRUE,,,,,B,F,Linnaeus,1758,,,,21277,114,"res., common",Papilio glaucus,41,40,0,320  a,67,2295,Harsha Lake - Prairie Trail,71,7/28/2011,Cler
+4181,Papilio,troilus,troilus,Papilio troilus troilus,Spicebush Swallowtail,TRUE,,,,,B,F,Linnaeus,1758,,,,16575,95,"res., uncommon to common",Papilio troilus troilus,41,40,0,325  a,51,2163,Moseley Barrens/Kitty Todd,80,7/30/2011,Luca
+4184,Eurytides,marcellus,marcellus,Eurytides marcellus marcellus,Zebra Swallowtail,TRUE,,,,,B,T,Cramer,1777,,,,797,32,"res., uncommon to common, southernly",,41,40,0,300,18,128,Shawnee Bridle Trail #5 - SE,8,4/14/2011,Cler
+4193,Pontia,protodice,,Pontia protodice,Checkered White,TRUE,,,,,B,T,Boisduval & LeConte,1829,,,,29,12,"regular immigrant or res., locally common",,42,40,0,334,1,1,Stages Pond Nature Preserve,1,9/25/2011,Pick
+4195  d,Pieris,napi,oleracea,Pieris napi oleracea,Mustard White,TRUE,,,,,B,T,Harris,1829,,,,3,2,"EXTIRPATED (probably), res., rare",Artogeia n. o.,42,40,0,336  d,0,0,,0,,Hock
+4196,Pieris,virginiensis,,Pieris virginiensis,West Virginia White,TRUE,N,,N,N,B,T,W. H. Edwards,1870,,,,187,12,"res., rare to common, northeasternly",,42,40,0,337,3,8,Girdled Road Park,3,5/7/2011,Lake
+4197,Pieris,rapae,,Pieris rapae,Cabbage White,TRUE,,,,,B,T,Linnaeus,1758,,,,226469,115,"naturalized res., common",European Cabbage White,42,40,0,338,70,8372,Dike 14 NP-Cleve.Lakefront NP,292,6/18/2011,Cuyh
+4202,Euchloe,olympia,,Euchloe olympia,Olympia Marble,FALSE,N,N,N,N,B,T,W.H.Edwards,1871,,,,0,0,"res., rare",,42,40,0,344,,,,,,
+4207  a,Anthocharis,midea,annickae,Anthocharis midea annickae,Falcate Orangetip,TRUE,N,N,N,,B,F,dos Passos & Klots,1969,,,,601,16,"res., uncommon to common, unglaciated","Anthocharis midea annickae, Falcapica m. a.",42,40,0,349  b,6,40,East Fork State Pk-Horseman's,14,4/15/2011,Cler
+4209,Colias,philodice,philodice,Colias philodice philodice,Clouded Sulphur,TRUE,,,,,B,F,Godart,1819,,,,32808,113,"res., common",Clouded Sulphur,42,40,0,351  a,62,2018,Moseley Barrens/Kitty Todd,50,9/25/2011,Luca
+4210,Colias,eurytheme,,Colias eurytheme,Orange Sulphur,TRUE,,,,,B,F,Boisduval,1852,,,,44890,115,"naturalized res., common",Alfalfa Butterfly,42,40,0,352,64,2054,Jude's Butterfly Trail,42,10/4/2011,Mont
+4220,Colias,interior,,Colias interior,Pink-edged Sulphur,FALSE,,,,,B,F,Scudder,1862,,,,0,0,Species of possible occurrence in Ohio,,,,,364,0,0,,0,,
+4224,Colias,cesonia,cesonia,Colias cesonia cesonia,Southern Dogface,TRUE,N,N,N,N,B,T,Stoll,1790,,,,29,7,"irregular immigrant, rare",Colias cesonia cesonia,42,40,0,368  a,2,2,Aullwood Center,1,7/21/2011,Mont
+4228  a,Phoebis,sennae,eubule,Phoebis sennae eubule,Cloudless Sulphur,TRUE,N,N,,,B,T,Linnaeus,1767,,,,769,45,"irregular immigrant, rare",,42,40,0,371  b,6,22,McLean Teddy Bear Park,10,10/5/2011,Alln
+4229,Phoebis,philea,philea,Phoebis philea philea,Orange-barred Sulphur,TRUE,N,N,N,N,B,T,Johansson,1763,,,,0,0,"stray, rare",,42,40,0,372  a,0,0,,0,,
+4237,Eurema,lisa,lisa,Eurema lisa lisa,Little Yellow,TRUE,,,,,B,F,Boisduval & LeConte,1829,,,,705,51,"rare immigrant, rare to common, southernly",Little Sulphur,42,40,0,383  a,3,18,Moseley Barrens/Kitty Todd,4,9/25/2011,Luca
+4242,Eurema,nicippe,,Eurema nicippe,Sleepy Orange,TRUE,,N,,,B,T,Cramer,1779,,,,1134,9,"regular immigrant, rare to uncommon, southernly",,42,40,0,388,1,47,Blendon Woods,9,8/30/2011,Fran
+4246,Eurema,mexicana,,Eurema mexicana,Mexican Sulphur,FALSE,,,,,B,F,Boisduval,1836,,,,0,0,"stray, rare",E. mexicanum,,,,380,0,0,,0,,
+4248,Nathalis,iole,,Nathalis iole,Dainty Sulphur,FALSE,N,N,N,N,B,F,Boisduval,1836,,,,0,0,"irregular immigrant or stray, rare",,42,40,0,389,0,0,,0,,
+4249,Feniseca,tarquinius,tarquinius,Feniseca tarquinius tarquinius,Harvester,TRUE,,,,,B,T,Fabricius,1793,,,,135,27,"res., uncommon to rare, localized",,43,40,0,391  a,6,16,Oak Openings-Sand Pits,4,7/25/2011,Luca
+4251  a,Lycaena,phlaeas,americana,Lycaena phlaeas americana,American Copper,TRUE,,,,,B,F,Harris,1862,,,,5601,60,"res., possibly naturalized, uncommon to common",,43,40,0,393  a,11,611,Moseley Barrens/Kitty Todd,49,9/18/2011,Luca
+4256,Lycaena,hyllus,,Lycaena hyllus,Bronze Copper,TRUE,,,,,B,T,Cramer,1775,,,,545,42,"res., uncommon, northernly",Hyllolycaena hyllus,43,40,0,398,2,5,Wolf Creek Environm'l Center,2,8/7/2011,Medi
+4260,Lycaena,epixanthe,epixanthe,Lycaena epixanthe epixanthe,Bog Copper,FALSE,,,,,B,T,Boisduval & LeConte,1833,,,,0,0,"EXTIRPATED (probably), res., rare",Lycaena e. e.,43,40,0,402  a,,,,,,
+4261,Lycaena,dorcas,dorcas,Lycaena dorcas dorcas,Dorcas Copper,FALSE,,,,,B,T,W. Kirby,1837,,,,0,0,"EXTIRPATED (probably), res., rare",Lycaena d. d.,43,40,0,403  a,,,,,,
+4262,Lycaena,helloides,,Lycaena helloides,Purplish Copper,TRUE,,N,N,N,B,T,Boisduval,1852,,,,2,1,"res., rare, localized @ low densities",Lycaena helloides,43,40,0,404,0,0,,0,,Hock
+4270,Atlides,halesus,halesus,Atlides halesus halesus,Great Purple Hairstreak,FALSE,,,,,B,T,Cramer,1777,,,,0,0,"stray, rare",,43,40,0,412  a,0,0,,0,,
+4275,Satyrium,titus,titus,Satyrium titus titus,Coral Hairstreak,TRUE,,,,,B,T,Fabricius,1793,,,,392,28,"res., uncommon to common",Harkenclenus t. t.,43,40,0,417  a,9,44,Moseley Barrens/Kitty Todd,12,7/8/2011,Luca
+4275  a,Satyrium,titus,mopsus,Satyrium titus mopsus,Coral Hairstreak,FALSE,,,,,B,T,Hubner,1818,,,unglaciated subspecies,0,0,"res., uncommon to common",Harkenclenus t. m.,,,,417  b,0,0,,0,,
+4278,Satyrium,acadicum,acadicum,Satyrium acadicum acadicum,Acadian Hairstreak,TRUE,,,,N,B,T,W. H. Edwards,1862,,,,633,11,"res., rare to uncommon, northernly",,43,40,0,420  a,4,35,Terra Vista,16,6/22/2011,Cuyh
+4281,Satyrium,edwardsii,,Satyrium edwardsii,Edwards' Hairstreak,TRUE,N,N,,N,B,T,Grote & Robinson,1867,,,,99,8,"res., rare, localized",,43,40,0,423,2,18,Kitty Todd Nature Preserve,11,7/3/2011,Luca
+4282  a,Satyrium,calanus,falacer,Satyrium calanus falacer,Banded Hairstreak,TRUE,,,,,B,T,Godart,1824,,,,625,66,"res., uncommon to common",,43,40,0,424  b,15,63,Jude's Butterfly Trail,8,6/30/2011,Mont
+4283,Satyrium,caryaevorum,,Satyrium caryaevorum,Hickory Hairstreak,TRUE,,,N,N,B,T,McDunnough,1942,,,,144,22,"res., rare, localized @ low densities",,43,40,0,425,2,2,Terra Vista,1,6/29/2011,Cuyh
+4285  a,Satyrium,liparops,strigosum,Satyrium liparops strigosum,Striped Hairstreak,TRUE,,,,,B,T,Harris,1862,,,,121,26,"res., uncommon to rare",,43,40,0,427  b,2,2,Camp Asbury,1,6/26/2011,Port
+4299,Calycopis,cecrops,,Calycopis cecrops,Red-banded Hairstreak,TRUE,N,N,,,B,T,Fabricius,1793,,,,395,20,"res., rare to uncommon, localized @ low densities",,43,40,0,441,9,94,Shawnee Bridal Trail #5 - NW,15,7/27/2011,Scit
+4318,Callophrys,gryneus,gryneus,Callophrys gryneus gryneus,Olive Hairstreak,TRUE,N,N,,,B,T,Hubner,1819,3/17/2004,"B.K.Coleman, memo-D.Horn",Called Juniper Hairstreak 1996 to 2003. Determined by several Leps that juniper is western; olive is eastern.,127,7,"res., rare, localized","Mitoura grynea g., Olive Hairstreak",43,40,0,460  a,4,14,Germantown MetroPark,4,7/19/2011,Mont
+4322  b,Callophrys,augustinus,croesiodes,Callophrys augustinus croesiodes,Brown Elfin,FALSE,N,N,,,B,T,Scudder,1876,,,,0,0,"res., rare, localized",Incisalia augustus c.,43,40,0,464  c,,,,,,
+4324,Callophrys,polios,,Callophrys polios,Hoary Elfin,FALSE,,,,,B,F,Cook & Watson,1907,,,,0,0,Species of possible occurrence in Ohio,Incisalia p.,,,,466  a,0,0,,0,,
+4325,Callophrys,irus,irus,Callophrys irus irus,Frosted Elfin,TRUE,N,N,N,N,B,T,Godart,1824,,,,24,1,"ENDANGERED, res., rare",Incisalia irus irus,43,40,0,467  a,1,2,Kitty Todd Nature Preserve,2,5/20/2011,Luca
+4326,Callophrys,henrici,henrici,Callophrys henrici henrici,Henry's Elfin,TRUE,N,N,,,B,T,Grote & Robinson,1867,,,,89,9,"res., rare to common, southernly",Incisalia h. h.,43,40,0,468  a,5,27,Shawnee Bridle Trail #5 - SE,19,4/14/2011,Cler
+4328,Callophrys,niphon,niphon,Callophrys niphon niphon,Eastern Pine Elfin,TRUE,N,N,,,B,T,Hubner,1823,,,,8,5,"res., rare, localized @ low densities",Incisalia n. n.,43,40,0,470  a,0,0,,0,,Hock
+4332,Fixsenia,favonius,ontario,Fixsenia favonius ontario,Northern Hairstreak,TRUE,N,N,N,N,B,T,W. H. Edwards,1868,,,considered same as Southern Hairstreak,8,5,"res., rare","Euristrymon o. o., Satyrium f.",43,40,0,474  a,0,0,,0,,Luca
+4335,Parrhasius,m-album,,Parrhasius m-album,White M Hairstreak,TRUE,,,,,B,T,Boisduval & LeConte,1833,,,,78,30,"res., rare",,43,40,0,477,5,5,Aullwood Center,1,8/11/2011,Mont
+4336  a,Strymon,melinus,humuli,Strymon melinus humuli,Gray Hairstreak,TRUE,,,,,B,T,Harris,1841,,,,1622,74,"res., uncommon to common, southernly",,43,40,0,478  b,28,135,Kitty Todd Nature Preserve,8,8/27/2011,Luca
+4349,Erora,laeta,,Erora laeta,Early Hairstreak,FALSE,N,N,N,N,B,T,W. H. Edwards,1862,,,,0,0,"res., rare",,43,40,0,491,,,,,,
+4357,Leptotes,marina,,Leptotes marina,Marine Blue,FALSE,N,N,N,N,B,T,Reakirt,1868,,,,0,0,Species of possible occurrence in Ohio,,,,,498,0,0,,0,,
+4360  a,Hemiargus,isola,alce,Hemiargus isola alce,Reakirt's Blue,FALSE,,,,,B,T,W. H. Edwards,1871,,,,0,0,"irregular immigrant, rare",,43,40,0,502  a,,,,,,
+4361,Everes,comyntas,comyntas,Everes comyntas comyntas,Eastern Tailed Blue,TRUE,,,,,B,T,Godart,1824,,,,34498,113,"res., common",,43,40,0,503  a,65,4360,Highbanks MetroPark,92,9/14/2011,Fran
+4363,Celastrina,ladon,ladon,Celastrina ladon ladon,Spring/Summer Azure,TRUE,,,,,B,T,Cramer,1780,9/1/2003,B.K.C-re: Dave Horn,C. neglecta (Summer Azure) entered as C.l l. because of confusion;Changed to Spring/Summer to include both.,45353,116,"res., common",Celastrina argiolus ladon,43,40,0,505  a,64,1646,Dike 14 NP-Cleve.Lakefront NP,31,6/18/2011,Cuyh
+4363  a,Celastrina,ladon,lucia,Celastrina ladon lucia,Spring Azure,FALSE,,,,,B,T,W. Kirby,1837,,,"northern subspecies, entered as Spring Azure because of confusion",0,0,"res., common","C. argiolus lucia, C. lucia, Northern Spring Azure",43,40,0,505  b,,,,,,
+4363.1,Celastrina,neglecta,,Celastrina neglecta,Summer Azure,FALSE,,,,,B,T,W. H. Edwards,1862,,,entered as Spring Azure because of confusion,0,0,"res., common",C. ladon n.,,,,505  a1,0,0,,0,,
+4363.2,Celastrina,neglectamajor,,Celastrina neglectamajor,Appalachian Azure,TRUE,N,N,N,N,B,T,Tutt,1908,,,,8,4,"Res, rare, localized @ low densities",C. neglecta-major,,,,505  a2,1,3,Clear Creek - Creekside,3,5/21/2011,Hock
+4364,Celastrina,nigra,,Celastrina nigra,Dusky Azure,TRUE,N,N,,,B,F,Clench,1972,,,,2,1,"res., rare to uncommon, localized",,43,40,0,506,0,0,,0,,Erie
+4372,Glaucopsyche,lygdamus,lygdamus,Glaucopsyche lygdamus lygdamus,Silvery Blue,TRUE,N,N,,,B,T,Doubleday,1841,,,,7,3,"res., rare to uncommon, localized",,43,40,0,514  d,0,0,,0,,Hock
+4375  d,Lycaeides,melissa,samuelis,Lycaeides melissa samuelis,Karner Blue,TRUE,N,N,N,N,B,F,Nabokov,1944,,,,204,3,"ENDANGERED, res., rare",,43,40,0,517  a,2,23,Moseley Barrens/Kitty Todd,4,7/16/2011,Luca
+4387,Calephelis,borealis,,Calephelis borealis,Northern Metalmark,TRUE,N,N,,,B,T,Grote & Rob.,1866,,,,31,5,"res., rare, southernly",,44,40,0,529,1,3,Aullwood Center,3,6/30/2011,Mont
+4391,Calephelis,muticum,,Calephelis muticum,Swamp Metalmark,FALSE,N,N,N,N,B,F,McAlpine,1937,,,,0,0,"ENDANGERED, res., rare",,44,40,0,533,,,,,,
+4410,Libytheana,carinenta,bachmanii,Libytheana carinenta bachmanii,American Snout Butterfly,TRUE,,,,,B,T,Kirtland,1852,,,,755,58,"regular immigrant or res., uncommon to rare",L. bachmanii b.,45,40,0,552  a,21,59,Slate Run Wetland,3,7/19/2011,Fran
+4413  a,Agraulis,vanillae,nigrior,Agraulis vanillae nigrior,Gulf Fritillary,FALSE,N,N,N,N,B,F,Michener,1942,,,,0,0,"stray or irregular immigrant, rare",,46,40,0,555  a,,,,,,
+4420,Polygonia,interrogationis,,Polygonia interrogationis,Question Mark,TRUE,,,,,B,T,Fabricius,1798,,,,4492,103,"res., uncommon to common",,46,40,0,636,45,240,Dike 14 NP-Cleve.Lakefront NP,5,5/5/2011,Cuyh
+4421,Polygonia,comma,,Polygonia comma,Eastern Comma,TRUE,,,,,B,T,Harris,1842,,,,4131,102,"res., uncommon to common",,46,40,0,637,49,283,Cincinnati Nature Center,9,4/13/2011,Cler
+4422,Polygonia,satyrus,,Polygonia satyrus,Satyr Comma,FALSE,,,,,B,T,W. H. Edwards,1869,,,,0,0,Species of possible occurrence in Ohio,,,,,638,0,0,,0,,
+4423,Polygonia,faunus,,Polygonia faunus,Green Comma,FALSE,,,,,B,T,W. H. Edwards,1862,,,,0,0,Species of possible occurrence in Ohio,,,,,639  a,0,0,,0,,
+4429,Polygonia,progne,progne,Polygonia progne progne,Gray Comma,TRUE,,,N,N,B,T,Cramer,1776,,,,8,4,"res., rare, localized",,46,40,0,645  a,0,0,,0,,Fran
+4430  a,Nymphalis,vau-album,j-album,Nymphalis vau-album j-album,Compton Tortoiseshell,TRUE,,,N,N,B,T,Boisduval & LeConte,1883,,,,15,7,"irregular immigrant, rare",N. vau-album j.,46,40,0,646,0,0,,0,,Summ
+4431,Nymphalis,californica,,Nymphalis californica,California Tortoiseshell,FALSE,,,,,B,T,Boisduval,1852,,,,0,0,Species of possible occurrence in Ohio,,,,,647  a,0,0,,0,,
+4432,Nymphalis,antiopa,antiopa,Nymphalis antiopa antiopa,Mourning Cloak,TRUE,,,,,B,T,Linnaeus,1758,,,,2171,109,"res., uncommon",,46,40,0,648  a,36,112,Woltz Road,5,5/28/2011,Hock
+4433,Nymphalis,milberti,milberti,Nymphalis milberti milberti,Milbert's Tortoise Shell,TRUE,,,,,B,T,Godart,1819,,,,122,24,"res., rare to common, northernly",Nymphalus m. m.,46,40,0,649  b,3,8,The Dawes Arboretum-Dutch Fork,3,6/2/2011,Lick
+4434,Vanessa,virginiensis,,Vanessa virginiensis,American Lady,TRUE,,,,,B,T,Drury,1773,,,,1257,76,"res., uncommon to common",,46,40,0,650,21,39,Top Of The World,2,7/14/2011,Summ
+4435,Vanessa,cardui,,Vanessa cardui,Painted Lady,TRUE,,,,,B,T,Linnaeus,1758,,,,4021,96,"irregular immigrant, rare to common",,46,40,0,651,5,12,Woltz Road,2,10/23/2011,Hock
+4437  a,Vanessa,atalanta,rubria,Vanessa atalanta rubria,Red Admiral,TRUE,,,,,B,T,Fruhstorfer,1909,,,,18101,108,"res., uncommon to common",,46,40,0,653  a,50,226,Dike 14 NP-Cleve.Lakefront NP,16,5/13/2011,Cuyh
+4440,Junonia,coenia,,Junonia coenia,Common Buckeye,TRUE,,,,,B,T,Hubner,1822,,,,10345,104,"regular immigrant, rare to uncommon",,46,40,0,656,65,2591,Moseley Barrens/Kitty Todd,81,9/25/2011,Luca
+4447,Euptoieta,claudia,,Euptoieta claudia,Variegated Fritillary,TRUE,,,,,B,T,Cramer,1775,,,,371,37,"regular immigrant, uncommon to rare, southernly",,46,40,0,562,9,23,The Dawes Arboretum-Davis Farm,3,9/24/2011,Lick
+4449,Speyeria,diana,,Speyeria diana,Diana,FALSE,N,N,N,N,B,T,Cramer,1775,,,,0,0,"EXTIRPATED, res., rare",,46,40,0,564,0,0,,0,,Hock
+4450,Speyeria,cybele,cybele,Speyeria cybele cybele,Great Spangled Fritillary,TRUE,,,,,B,T,Fabricius,1775,,,,23942,105,"res., common",,46,40,0,565  a,58,1840,Kitty Todd Nature Preserve,44,7/15/2011,Luca
+4451,Speyeria,aphrodite,aphrodite,Speyeria aphrodite aphrodite,Aphrodite Fritillary,TRUE,,,,,B,T,Fabricius,1787,,,,431,30,"res., rare to common, northernly and southeastern",,46,40,0,566  a,6,27,Woltz Road,4,7/3/2011,Hock
+4451  b,Speyeria,aphrodite,alcestis,Speyeria aphrodite alcestis,Alcestis Fritillary,FALSE,,,,,B,T,W. H. Edwards,1877,,,northern subspecies,0,0,"res., rare to common, northernly and southeastern",,46,40,0,566  c,0,0,,0,,
+4452,Speyeria,idalia,,Speyeria idalia,Regal Fritillary,FALSE,N,N,N,N,B,T,Drury,1773,,,,0,0,"ENDANGERED (potentially), res., rare to uncommon",,46,40,0,567,0,0,,0,,
+4459,Speyeria,atlantis,atlantis,Speyeria atlantis atlantis,Atlantis Fritillary,FALSE,N,N,N,N,B,T,W. H. Edwards,1862,,,,0,0,"irregular immigrant or res., rare",Mountain Silver-spot,46,40,0,574  a,0,0,,0,,
+4464  a,Boloria,selene,myrina,Boloria selene myrina,Silver-bordered Fritillary,TRUE,,,N,N,B,T,Cramer,1777,,,,187,19,"THREATENED, res., rare",Boloria  s. m.,46,40,0,579  a,2,7,Wolf Creek Environm'l Center,6,6/26/2011,Medi
+4464  b,Boloria,selene,nebraskensis,Boloria selene nebraskensis,Silver-bordered Fritillary,FALSE,,,N,N,B,T,Holland,1928,,,central and west-central subspecies,0,0,"very rare, may be on verge of extinction",Boloria s. n.,46,40,0,579  b,,,,,,
+4465,Boloria,bellona,bellona,Boloria bellona bellona,Meadow Fritillary,TRUE,,,,,B,T,Fabricius,1775,,,,3348,81,"res., common",Clossiana b. b.,46,40,0,580  a,21,222,Pine Hollow,64,8/27/2011,Summ
+4481,Phyciodes,tharos,tharos,Phyciodes tharos tharos,Pearl Crescent,TRUE,,,,,B,T,Drury,1773,,,,121089,118,"res., common",,46,40,0,623  b,68,7272,Terra Vista,217,9/14/2011,Cuyh
+4481  b,Phyciodes,selenis,,Phyciodes selenis,Northern Crescent,TRUE,,,,,B,T,W. Kirby,1837,,,"P. pascoensis (W. G. Wright), P. cocyta (Cramer, 1777), P. morpheus (Fabricius, 1775)",2,2,"Res., rare","P. tharos pascoensis., see below",46,40,0,623  d,0,0,,0,,Medi
+4482,Phyciodes,batesii,,Phyciodes batesii,Tawny Crescent,FALSE,,,,,B,T,Reakirt,1865,,,,0,0,Species of possible occurrence in Ohio,,46,40,0,624,,,,,,
+4489,Chlosyne,gorgone,,Chlosyne gorgone,Gorgone Checkerspot,FALSE,,,,,B,T,Hubner,1810,,,,0,0,Species of possible occurrence in Ohio,Charidryas g.,,,,605  a,0,0,,0,,
+4490,Chlosyne,nycteis,nycteis,Chlosyne nycteis nycteis,Silvery Checkerspot,TRUE,,,,,B,T,Dubleday & Hewitson,1847,,,,1262,37,"res., uncommon, southernly",Charidryas n. n.,46,40,0,606  a,16,169,Harsha Lake - Corps Area,18,7/30/2011,Cler
+4491,Chlosyne,harrisii,harrisii,Chlosyne harrisii harrisii,Harris' Checkerspot,TRUE,N,,N,N,B,T,Scudder,1864,,,,13,3,"res., rare to uncommon, northeasternly",Charidryas h. h.,46,40,0,607  a,0,0,,0,,Port
+4491  b,Chlosyne,harrisii,liggetti,Chlosyne harrisii liggetti,Harris' Checkerspot,FALSE,N,,N,N,B,T,Avinoff,1930,,,northern subspecies,0,0,,Charidryas h. l.,46,40,0,607  b,,,,,,
+4516,Euphydryas,phaeton,phaeton,Euphydryas phaeton phaeton,Baltimore,TRUE,,,,,B,T,Drury,1773,,,,765,17,"res., rare to uncommon, northeasternly",,46,40,0,635  a,3,50,Oakton Preserve,11,6/15/2011,Geau
+4522,Limenitis,arthemis,arthemis,Limenitis arthemis arthemis,White Admiral,TRUE,,,,,B,T,Drury,1773,,,northeastern subspecies,8,6,"strays, uncommon, northeasternly",Basilarchia a. a.,46,40,0,663  a,0,0,,0,,Summ
+4522  b,Limenitis,arthemis,astyanax,Limenitis arthemis astyanax,Red-spotted Purple,TRUE,,,,,B,T,Fabricius,1775,,,,4793,107,"res., uncommon to common",Basilarchia a. a.,46,40,0,663  c,42,157,Girdled Road Park,5,7/24/2011,Lake
+4523,Limenitis,archippus,archippus,Limenitis archippus archippus,Viceroy,TRUE,,,,,B,T,Cramer,1776,,,,11598,97,"res., uncommon to common, localized",Basilarchia a. a.,46,40,0,664  a,43,520,Kitty Todd Nature Preserve,16,7/30/2011,Luca
+4554,Anaea,andria,,Anaea andria,Goatweed Leafwing,TRUE,N,N,N,N,B,F,Scudder,1875,,,,2,2,"irregular immigrant, rare",,47,40,0,695,0,0,,0,,Haml
+4557,Asterocampa,celtis,celtis,Asterocampa celtis celtis,Hackberry Emperor,TRUE,,,,,B,T,Boisduval & LeConte,1837,,,,7812,57,"res., uncommon to common, westernly",,47,40,0,698  a,22,212,East Fork State Pk-Horseman's,13,8/2/2011,Cler
+4562.1,Asterocampa,clyton,clyton,Asterocampa clyton clyton,Tawny Emperor,TRUE,,,,,B,T,Boisduval & LeConte,1837,,,,709,44,"res., rare to uncommon, localized, southwesternly",,47,40,0,700  a,8,33,East Fork State Pk-Horseman's,4,7/1/2011,Cler
+4568.1,Enodia,anthedon,,Enodia anthedon,Northern Pearly-Eye,TRUE,,,,,B,F,A. H. Clark,1936,,,,2060,57,"res., uncommon, localized, southeasternly",,48,40,0,711,24,200,Kiser Lake State Park-1 & 2,23,7/2/2011,Cham
+4568.2,Enodia,creola,,Enodia creola,Creole Pearly-Eye,FALSE,,,,,B,T,Skinner,1897,,,,0,0,Species of possible occurrence in Ohio,,48,40,0,712,,,,,,
+4568.3,Satyrodes,eurydice,eurydice,Satyrodes eurydice eurydice,Northern Eyed Brown,TRUE,,,N,N,B,T,Johansson,1763,,,,1107,33,"res., uncommon, northeasternly",,48,40,0,713  a,8,44,Wolf Creek Environm'l Center,9,6/26/2011,Medi
+4569  a,Satyrodes,appalachia,leeuwi,Satyrodes appalachia leeuwi,Appalachian Eyed Brown,TRUE,,,N,N,B,T,Gatrelle & Arbogast,1974,,,,1462,27,"res., rare to uncommon, localized",,48,40,0,714  b,7,195,Davidson Butterfly Preserve,20,7/13/2011,Delw
+4573,Cyllopsis,gemma,gemma,Cyllopsis gemma gemma,Gemmed Satyr,TRUE,N,N,,,B,T,Hubner,1808,,,,471,9,"res., rare, localized @ low densities",,48,40,0,718  a,6,56,Harsha Lake - Corps Area,5,8/27/2011,Cler
+4575,Hermeuptychia,sosybius,,Hermeuptychia sosybius,Carolina Satyr,TRUE,N,N,,,B,T,Fabricius,1793,,,,447,11,"res., rare, localized",,48,40,0,720,5,46,Lynx Prairie,18,8/4/2011,Adam
+4577,Neonympha,mitchellii,mitchellii,Neonympha mitchellii mitchellii,Mitchell's Satyr,FALSE,N,N,N,N,B,F,French,1889,,,,0,0,"EXTIRPATED (probably), res., rare",,48,40,0,722,,,,,,
+4578,Megisto,cymela,cymela,Megisto cymela cymela,Little Wood Satyr,TRUE,,,,,B,T,Cramer,1777,,,,55418,107,"res., common",,48,40,0,723  a,57,3982,Pine Hollow,314,6/4/2011,Summ
+4583,Coenonympha,tullia,inornata,Coenonympha tullia inornata,Common Ringlet,TRUE,N,N,N,N,B,T,,2005,,,"Some experts consider this to be a distinct species, separate from European poputalions.",1,1,,,,,,4583,0,0,,0,,
+4587  b,Cercyonis,pegala,alope,Cercyonis pegala alope,Common Wood Nymph,TRUE,,,,,B,T,Fabricius,1793,,,,16696,100,"res., uncommon to common",,48,40,0,732  c,47,830,Pine Hollow,70,7/4/2011,Summ
+4587  c,Cercyonis,pegala,nephele,Cercyonis pegala nephele,Common Wood Nymph,FALSE,,,,,B,T,W. F. Kirby,1837,,,northern subspecies,0,0,"res., uncommon to common",,48,40,0,732  d,,,,,,
+4614,Danaus,plexippus,,Danaus plexippus,Monarch,TRUE,,,,,B,T,Linnaeus,1758,,,,36339,114,"regular immigrant, common",,49,40,0,760,69,1955,Dike 14 NP-Cleve.Lakefront NP,118,9/12/2011,Cuyh
+4615  b,Danaus,gilippus,strigosus,Danaus gilippus strigosus,Queen,FALSE,N,N,N,N,B,T,Bates,1864,,,,0,0,"stray, rare",D. g. thersippus,49,40,0,761  b,,,,,,
+A000,Unknown,voucher,,Unknown voucher,Unidentified Voucher,TRUE,,,,,B,T,unknown,0,,,,111,13,,,,,,A000,0,0,,0,,Erie
+A001,Unidentified,blue,,Unidentified blue,Unidentified Blue,TRUE,,,,,B,T,J. Wiedmann,2004,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,504,23,,,,,,A001,2,7,Shawnee Bridal Trail #5 - NW,5,5/12/2011,Scit
+A002,Unidentified,butterfly,,Unidentified butterfly,Unidentified Butterfly,TRUE,,,,,B,T,J. Wiedmann,2004,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,532,42,,,,,,A002,9,40,Top Of The World,12,6/30/2011,Summ
+A003,Unidentified,dark skipper,,Unidentified dark skipper,Unidentified Dark Skipper,TRUE,,,,,S,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,164,31,,,,,,A003,6,14,Top Of The World,5,6/9/2011,Summ
+A004,Unidentified,duskywing,,Unidentified duskywing,Unidentified Duskywing,TRUE,,,,,S,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,614,40,,,,,,A004,8,19,Shawnee Bridle Trail #5 - SE,6,5/12/2011,Cler
+A005,Unidentified,hairstreak,,Unidentified hairstreak,Unidentified Hairstreak,TRUE,,,,,B,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,118,28,,,,,,A005,8,23,Shawnee Bridle Trail #5 - SE,10,7/28/2011,Cler
+A006,Unidentified,light skipper,,Unidentified light skipper,Unidentified Light Skipper,TRUE,,,,,S,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,82,14,,,,,,A006,1,1,Brookside Reservation-C.M.Zoo,1,6/13/2011,Cuyh
+A007,Unidentified,polygonia,,Unidentified polygonia,Unidentified Polygonia,TRUE,,,,,B,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,397,47,,,,,,A007,20,61,Germantown MetroPark,4,4/3/2011,Mont
+A008,Unidentified,skipper,,Unidentified skipper,Unidentified Skipper,TRUE,,,,,S,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,966,69,,,,,,A008,24,110,Kelleys Island - Coleman Tract,9,6/25/2011,Erie
+A009,Unidentified,sulphur,,Unidentified sulphur,Unidentified Sulphur,TRUE,,,,,B,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,1375,50,,,,,,A009,11,67,Aullwood Center,29,10/25/2011,Mont
+A010,Unidentified,swallowtail,,Unidentified swallowtail,Unidentified Swallowtail,TRUE,,,,,B,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,205,29,,,,,,A010,7,29,Top Of The World,4,8/11/2011,Summ
+A011,Unidentified,vanessa,,Unidentified vanessa,Unidentified Vanessa,TRUE,,,,,B,T,J. Wiedmann,,6/29/2004,B. K. Coleman,Suggested addition by Jerry Wiedmann,16,9,,,,,,A011,0,0,,0,,Cler
+A012,Unidentified,fritillary,,Unidentified fritillary,Unidentified Fritillary,TRUE,,,,,B,T,B. Coleman,2005,6/29/2005,B. K. Coleman,,106,26,,,,,,A012,5,9,Brookside Reservation-C.M.Zoo,3,7/6/2011,Cuyh
+A013,Undentified,satyr,,Undentified satyr,Unidentified Satyr,TRUE,,,,,B,T,B. Coleman,2007,1/8/2007,B. K. Coleman,,16,7,,,,,,A013,2,4,Shawnee Bridal Trail #5 - NW,2,7/27/2011,Scit
+A014,Unidentified,sootywing,,Unidentified sootywing,Unidentified Sootywing,TRUE,,,,,B,T,B.K. Coleman,2007,,,,122,16,,,,,,A014,4,9,Aullwood Center,3,8/4/2011,Mont
+A099,None Seen This Day,None seen this day,,None Seen This Day None seen this day,None seen this day,TRUE,,,,,B,T,,,,,,538,79,,,,,,,31,55,Pententiary Glen,1,4/30/2011,Lake
