@@ -7,15 +7,12 @@
 
 source('dataprep4jags.R')
 
-source('dataprep4jags.R')
-
 # Specify model in BUGS language
 sink("MultiSpecies3.txt")
 cat("
     model {
     for (i in 1:nsites){ # weird index because N and y different sizes due to Nt0
       for (k in 1:nspecies){
-<<<<<<< HEAD
         # Latent suitability for site x species      
         z[i, k] ~ dbern(omega[k])
 
@@ -33,32 +30,9 @@ cat("
       } #nspecies
     } #nsites
     
-=======
-      # Latent suitability for site x species      
-      z[i, k] ~ dbern(omega[k])
-    
-        for (j in 2:(nyears + 1)){
-        # Zero-inflated poisson with additional overdispersion
-        y[i, j - 1, k] ~ dpois(N.eff[i, j - 1, k] * eDispersion[i, j - 1] + 0.00001)
-        N.eff[i, j - 1, k] <- z[i, k] * N[i, j, k]
-
-        # Process model
-        N[i, j, k] <- N[i, j - 1, k] * lam[i, j - 1, k] # multiply growth rate by previous size
-        log(lam[i, j - 1, k]) <- beta0[k] + beta1[i, k] * log(N[i, j - 1, k] + 1) + yearRE[j - 1] 
-    
-        }
-      }
-    }
-
-    for (i in 1:nsites){
-      for (j in 1:nyears){
-        # Observation error shared between species at site x year for overdispersion
-        eDispersion[i, j] ~ dgamma(1 / sDispersion^2, 1 / sDispersion^2)
-      }
-    }
 
 
->>>>>>> 66b7b21a48c92faea966acc4e6097b46789d2e01
+
     # Priors
     # Suitability
     for (k in 1:nspecies){
@@ -66,7 +40,6 @@ cat("
     beta0[k] ~ dnorm(mu.r.sp, tau.r.sp)
     }  
 
-<<<<<<< HEAD
     # Observation RE
     for (i in 1:nsites){
       for (j in 1:nyears){
@@ -82,26 +55,6 @@ cat("
     
     sigma.obs ~ dunif(0, 5)
     tau.obs <- pow(sigma.obs, -2)
-=======
-    # Overdispersion
-    sDispersion ~ dunif(0, 5)
-
-    for (i in 1:nsites){
-      for (k in 1:nspecies){
-      N[i, 1, k] ~ dpois(Nstart[i, k])
-      beta1[i, k] ~ dnorm(mu.K, tau.K)
-      }
-    }
-    
-    for (j in 1:nyears){
-    yearRE[j] ~ dnorm(0, tau.yearRE)
-    }
-    sigma.yearRE ~ dunif(0, 5)
-    tau.yearRE <- pow(sigma.yearRE, -2)
-
-#     sigma.siteRE ~ dunif(0, 5)
-#     tau.siteRE <- pow(sigma.siteRE, -2)
->>>>>>> 66b7b21a48c92faea966acc4e6097b46789d2e01
     
     mu.r.sp ~ dnorm(0, 0.001)
     tau.r.sp <- pow(sigma.r.sp, -2)
@@ -117,7 +70,6 @@ cat("
 sink()
 
 
-<<<<<<< HEAD
 Ninit <- array(NA, dim = c(nsites, nyears + 1, nspecies))
 zinit <- array(NA, dim = c(nsites, nspecies))
 for (i in 1:nsites) {
@@ -130,30 +82,16 @@ for (i in 1:nsites) {
   }
 }
 
-=======
-#add column of NAs for Nt0 in initial values of N
-# Ninit <- array(NA, dim = c(nsites, nyears))
-# for (i in 1:nrow(Ninit)){
-#   Ninit[i, ] <- rep(max(dat_array[i,,1], na.rm = TRUE) + 1, ncol(Ninit))
-# }
-# Ninit <- cbind(rep(NA, nrow(Ninit)), Ninit)
->>>>>>> 66b7b21a48c92faea966acc4e6097b46789d2e01
-
 
 j.data <- list(y = count_array, nsites = nsites, nyears = nyears, nspecies = nspecies, Nstart = Nstartvals)
 
 j.inits <- function(){
   list(
-<<<<<<< HEAD
     z = zinit,
     # N = Ninit,
-=======
-    sDispersion = runif(1, 0, 5),
->>>>>>> 66b7b21a48c92faea966acc4e6097b46789d2e01
     omega = runif(nspecies, 0, 1),
     mu.K = rnorm(1),
     mu.r.sp = rnorm(1),
-<<<<<<< HEAD
     sigma.obs = runif(1, 0, 5), 
     sigma.r.sp = runif(1, 0, 5), 
     sigma.K.sp = runif(1, 0, 5)
@@ -186,12 +124,7 @@ N.ests <- N.ests[, -1, ]
 sp <- 1
 plot(count_array[,,sp], N.ests[,,sp])
 abline(0, 1)
-=======
-    sigma.yearRE = runif(1, 0, 5), 
-    sigma.r.sp = runif(1, 0, 5), 
-    sigma.K = runif(1, 0, 5)
-  )
-}
+
 j.param <- c("sDispersion", "omega", "mu.K", "mu.r.sp", "sigma.yearRE", 
              "sigma.r.sp", "sigma.K", "N")
 
@@ -239,4 +172,3 @@ N.ests <- round(test$N)
 sp <- 3
 plot(count_array[,,sp], N.ests[,-1,sp], xlim = c(0, 500), ylim = c(0, 500))
 abline(0, 1)
->>>>>>> 66b7b21a48c92faea966acc4e6097b46789d2e01
