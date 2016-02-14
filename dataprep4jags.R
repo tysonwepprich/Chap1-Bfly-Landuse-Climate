@@ -11,9 +11,11 @@ library(data.table)
 library(reshape2)
 library(rjags)
 library(R2jags)
+# library(devtools)
+# install_github(repo='jagstools', username='johnbaums')
+library(jagstools)
 
-
-checklist <- read.csv("data/Checklist.csv", header = TRUE)
+checklist <- read.csv("data/CheckList.csv", header = TRUE)
 checklist <- checklist[, c("CheckListKey", "CommonName")]
 names(checklist)[1] <- "Species"
 checklist <- rbind(checklist, data.frame(Species = 4363, CommonName = "Azures"))
