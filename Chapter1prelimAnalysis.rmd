@@ -166,7 +166,7 @@ dat_array[,,3] <- as.matrix(acast(cov_molten[cov_molten$variable == "win.Comp.2"
 
 Nstartvals <- round(apply(dat_array[,,1], 1, mean, na.rm = TRUE))
   
-
+library(rjags)
 library(R2jags)
 
 # First, get workflow down for population model with just one species

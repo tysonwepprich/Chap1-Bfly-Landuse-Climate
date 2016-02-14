@@ -1,0 +1,356 @@
+---
+title: "Chapter 1 Analysis"
+author: "Tyson Wepprich"
+date: "February 12, 2016"
+output: html_document
+---
+
+Plan:
+Hierarchical models in lmer for testing the weather x land-use interaction for
+each of 40 butterfly species. Does including land-use (climate known to be important)
+improve the predictive ability of models?
+
+TODO:
+Add in new 2013-2014 data. 
+Clean up and rerun regional GAMs to get population indices.
+Potential to add in GDD into GAM, in addition to simple latitude.
+Population index: Trapezoid vs GAM curve vs collated index.
+Response: Growth rate or abundance?
+Feature selection for climate and landuse:
+- PCA of 7 land-use/land-cover classes. (Impervious?)
+- PCA of many potential climate variables. Temp, precip, snow most important.
+  Debate over whether just clustered sites, or points from whole state.
+  Also, just years of monitoring, or from 1980 to show variation.
+  Anomalies or site x year fed into PCA?
+Finally, the model!
+- Split data into train and test sets (random or by year/site?)
+- Lmer mixed-effects models, variable selection for fixed adn random effects.
+- 
+
+```{r packages, echo=FALSE}
+list.of.packages <- c("devtools", "parallel", "dplyr", "tidyr", 
+                      "readr", "data.table", "mgcv")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages) > 0) install.packages(new.packages)
+
+library(devtools)
+library(parallel)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(data.table)
+library(mgcv)
+
+source('chap1functions.R')
+
+```
+
+Bring together raw data. 15 new sites in 2013-2014 without geo/region/landuse information.
+
+```{r, echo=FALSE}
+
+setwd("C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012")
+data <- fread("data.trim.csv", header = TRUE)
+data <- data[, list(SeqID, SiteID.x, SiteDate, Week, Total, CheckListKey, CommonName)]
+setnames(data,"SiteID.x","SiteID")
+data[, SiteID := formatC(SiteID, width = 3, format = "d", flag = "0")]
+data[, SiteDate := ymd(as.character(SiteDate))]
+
+
+region <- fread("site_region.txt", header = TRUE)
+region[, SiteID := formatC(SiteID, width = 3, format = "d", flag = "0")]
+data <- merge(data, region, by = "SiteID")
+setkey(data, SeqID)
+data$CommonName <- plyr::mapvalues(data$CommonName, from = "Spring/Summer Azure", to = "Azures")
+
+
+surveys <- distinct(data[, c("SeqID", "SiteID", "SiteDate", "Region", "Week"), with = FALSE])
+
+SpeciesNum <- data %>%
+  group_by(CommonName) %>%
+  summarise(Present = length(Total)) %>%
+  arrange(-Present) %>%
+  data.frame()
+
+SpeciesList <- SpeciesNum[-grep("Unidentified", SpeciesNum$CommonName, fixed = TRUE), ]
+SpeciesList <- SpeciesList[-which(SpeciesList$CommonName == "None seen this day"), ]
+SpeciesList$CommonName <- plyr::mapvalues(SpeciesList$CommonName, from = "Spring/Summer Azure", to = "Azures")
+
+# SpeciesList <- filter(SpeciesList, Present > 30)
+saveRDS(SpeciesList, file = "SpeciesList.rds")
+
+site_geo <- fread("../GIS/OHsites_reconciled.csv", header = TRUE)
+site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+
+setwd("C:/Users/Tyson/REPO/Chap1-Bfly-Landuse-Climate/")
+
+```
+
+Clean up counts with outlier detection to prepare for Regional GAM.
+Function counts the number of days separating an observation of a species with 
+any other observation of the same species within the region (at same site, too).
+This may remove interesting observations, but in reality will only cut observations
+from sites that miss lots of weeks, or stray observations of less common species.
+Save each species' counts in rds file.
+
+```{r outliers, eval=FALSE}
+
+##############################################
+#run outlier detection for all, save counts since this is slow
+species <- as.character(SpeciesList$CommonName)
+species <- species[5:100]
+# species[5] <- "Azures"
+
+for (sp in species){
+  
+  print(sp)
+  spdat <- data[CommonName == sp]
+  spdat <- unique(spdat) #not sure why there would be duplicates!
+  setkey(spdat, SeqID)
+  
+  #Add zeros to surveys when species not counted during a survey
+  #Results in dataset will all 20383 surveys
+  
+  test <- merge(surveys, spdat, by = c("SeqID", "SiteID", "SiteDate", "Region", "Week"), all.x = TRUE)
+  counts <- test[, `:=` (CheckListKey = NULL,
+                         CommonName = NULL)]
+  counts$Total <- plyr::mapvalues(counts[,Total], from = NA, to = 0)
+  
+  #Filter dataset
+  #Remove pilot year
+  counts <- counts[year(SiteDate) > 1995]
+  counts[, GrandTotal := sum(Total), by = "SiteID"]
+  counts <- counts[GrandTotal > 0]
+
+  counts[, Ordinal := yday(SiteDate)]
+  counts[, Year := year(SiteDate)]
+  
+  rawcounts <- OutlierDetect(counts)
+  
+  saveRDS(rawcounts, file = paste("RDSfiles/rawcounts", sp, ".rds", sep = ""))
+  
+  }
+```
+
+Here's where the regional GAM comes in.
+Fills in missing weeks, but also could be used as index (area under fligth curve).
+Has limits, when few counts of species at site just use raw counts.
+
+Issues:
+- GAM with latitude, lat/lon, or GDD
+- Neg binomial worked best last time for GAM family
+- Collated index not precisely like UKBMS (no overdispersion or serial correlation)
+- Sites coded as numeric??
+
+
+```{r population indices}
+
+
+#MASSIVE FOR LOOP TO ANALYZE POPULATIONS OF MANY SPECIES
+#Problem with "Spring/Summer Azure" name when writing file in directory
+SpeciesList <- readRDS("SpeciesList.rds")
+
+region <- data.table(read.csv("site_region.txt", header = TRUE))
+# region[, SiteID := gsub(" ", "", as.character(SiteID))]
+
+
+species <- as.character(SpeciesList$CommonName)
+species <- species[20:53]
+for (sp in species){
+  counts <- readRDS(paste("RDSfiles/rawcounts", sp, ".rds", sep = ""))
+  counts <- merge(counts, site_geo, by = "SiteID")
+  print(sp)
+  
+  #Filter dataset of outlying counts
+  counts <- counts[DaysOut <= 28]
+  counts <- counts[, `:=` (SurvPerYear = length(unique(SeqID)),
+                           YearTotal = sum(Total)), 
+                   by = list(SiteID, Year)]
+#   counts[, Ordinal := yday(SiteDate)]
+#   counts[, Year := year(SiteDate)]
+  
+  #Data restrictions for coming up with regional phenology
+  #Site must have >= 3 seen, >= 10 surveys, more than 3 sites in Region for GAM
+  datGAM <- counts[YearTotal >= 3]
+  datGAM <- datGAM[SurvPerYear >= 10]
+  datGAM[, SitesObserved := length(unique(SiteID)), by = list(Year)]
+  datGAM <- datGAM[SitesObserved >= 5]
+  if(nrow(datGAM) == 0) next
+
+  years <- sort(as.numeric(unique(datGAM$Year)))
+  alldatGAM <- data.frame()
+  phen_all <- data.frame()
+  for (yr in years){
+    if(dim(datGAM[Year == yr])[1] == 0) next
+    if(dim(datGAM[Year == yr][Total > 1])[1] == 0) next
+    #                 print(r)
+    print(yr)
+    phen <- ScaledPhenologyNB(datGAM, yr)
+    phen_all <- rbind(phen_all, phen)
+    dat_mod <- merge(datGAM, phen, by = c("Year", "Ordinal", "SiteID"))
+    alldatGAM <- rbind(alldatGAM, dat_mod)
+  }
+    
+  
+  alldatGAM$Year <- as.factor(alldatGAM$Year)
+  alldatGAM$SiteID <- as.factor(alldatGAM$SiteID)
+  if (length(unique(alldatGAM$Year)) == 1){
+    mod <- glm(Total ~ SiteID + offset(log(Gamma)), family = poisson(link = "log"), data = alldatGAM, control = list(maxit = 100))
+    }else{
+      mod <- glm(Total ~ SiteID + Year + offset(log(Gamma)), family = poisson(link = "log"), data = alldatGAM, control = list(maxit = 100))
+      }
+  
+  #Most restrictive data requirements to come up with a population index for a site
+  #Surveys >= 10, and GAM created for that region x year => fill in gaps with GAM/GLM
+  datPop <- counts[YearTotal >= 3]
+  datPop <- datPop[SurvPerYear >= 10]
+  datPop[, SitesObserved := length(unique(SiteID)), by = list(Year)]
+  datPop <- datPop[SitesObserved >= 5]
+#   datPop[, SitesPerRegion := length(unique(SiteID)), by = list(Region, Year)]
+#   datPop <- datPop[SitesPerRegion >= 3]
+  missing <- MissingDays(datPop)
+#   to_predict <- merge(missing, region, by = "SiteID")
+  to_predict <- merge(missing, phen_all, by = c("SiteID", "Year", "Ordinal"))
+  to_predict[, lat := NULL]
+  to_predict[, lon := NULL]
+  to_predict[, GAM.pred := NULL]
+  to_predict$Year <- as.factor(to_predict$Year)
+  to_predict$Total <- predict(mod, to_predict, type = "response")
+  to_predict$Source <- "EstimGAM_missing"
+  
+  #new: get GAM estimate for every week to smooth out detection issues
+  allweeks <- FillbyWeek(datPop)
+  gam_predict <- merge(allweeks, phen_all, by = c("SiteID", "Year", "Ordinal"))
+  gam_predict <- data.table(gam_predict)
+  gam_predict[, lat := NULL]
+  gam_predict[, lon := NULL]
+  gam_predict[, GAM.pred := NULL]
+  gam_predict$Year <- as.factor(as.character(gam_predict$Year))
+  gam_predict$Total <- predict(mod, gam_predict, type = "response")
+  gam_predict$Source <- "EstimGAM_allweeks"
+  
+  datPopPhen <- merge(datPop, phen_all, by = c("SiteID", "Year", "Ordinal"))
+  raw <- datPopPhen[, list(Year, Ordinal, SiteID, Week, Total, Gamma)]
+  raw$Source <- "RawCount"
+  
+  allGAMcounts <- rbind(raw, to_predict, gam_predict)
+  
+  #Get surveys without estimated GAMS
+  #UKBMS would interpolate gaps, for now just leave it and let Trapezoidal method average them
+  datLinear <- counts[YearTotal >= 3]
+#   datLinear[, SitesPerRegion := length(unique(SiteID)), by = list(Region, Year)]
+  datLinear <- datLinear[SurvPerYear >= 10]
+  datLinear[, SitesObserved := length(unique(SiteID)), by = list(Year)]
+  datLinear <- datLinear[SitesObserved < 5]
+  datLinear <- datLinear[, list(Year, Ordinal, SiteID, Week, Total)]
+  datLinear[,`:=` (Gamma = NA,
+                   Source = "LowRawCount")]
+  
+  #Get surveys with low Totals that year
+  datLow <- counts[YearTotal < 3]
+  datLow <- datLow[SurvPerYear >= 10]
+  datLow <- datLow[, list(Year, Ordinal, SiteID, Week, Total)]
+  datLow[,`:=` (Gamma = NA,
+                Source = "LowRawCount")]
+  
+  
+  allcounts <- rbind(allGAMcounts, datLinear, datLow)
+  #Annual estimates of abundance for site x year
+  
+  # Try with data.table
+  # Pop <- allcounts[, TrpzInd := TrapezoidIndex(Ordinal, Total), by = list(Year, SiteID)]
+  # Pop <- Pop[, SumCounts := sum(Total), by = list(Year, SiteID, Source)]
+  
+  #Try with dplyr
+  PopUKBMSTrpz <- allcounts %>% 
+    filter(Source != "EstimGAM_allweeks") %>%
+    group_by(Year, SiteID) %>%
+    summarise(TrpzInd = TrapezoidIndex(Ordinal, Total))
+  PopRawTrpz <- allcounts %>%
+    filter(Source %in% c("RawCount", "LowRawCount")) %>%
+    group_by(Year, SiteID) %>%
+    summarise(RawTrpzInd = TrapezoidIndex(Ordinal, Total))
+  PopRawSum <- allcounts %>% 
+    filter(Source %in% c("RawCount", "LowRawCount")) %>%
+    group_by(Year, SiteID) %>%
+    summarise(RawSum = sum(Total))
+  PopGAMTrpz <- allcounts %>%
+    filter(Source == "EstimGAM_allweeks") %>%
+    group_by(Year, SiteID) %>%
+    summarise(GAMTrpzInd = TrapezoidIndex(Ordinal, Total))
+  
+  Pops <- merge(PopUKBMSTrpz, PopRawTrpz, by = c("Year", "SiteID"))
+  Pops <- merge(Pops, PopRawSum, by = c("Year", "SiteID"))
+  Pops <- merge(Pops, PopGAMTrpz, by = c("Year", "SiteID"))
+  
+  #Collated indices from UKBMS
+  PopIndex <- Pops %>%
+    filter(RawSum > 0) %>%
+    group_by(Year) %>%
+    mutate(SitesUsed = length(SiteID)) %>%
+    filter(SitesUsed >= 5)
+  
+  SitesUsed <- PopIndex %>%
+    group_by(Year) %>%
+    summarise(SitesUsed = length(SiteID))
+  
+  if(length(unique(PopIndex$Year)) <= 1) next
+    
+  CollMod <- glm(TrpzInd ~ Year + SiteID - 1, family = poisson(link = "log"), data = PopIndex)
+  ALL <- data.frame(cbind("ALL", as.character(SitesUsed$Year), CollMod$coef[1:dim(SitesUsed)[1]], SitesUsed$SitesUsed))
+  names(ALL) <- c("Region", "Year", "CollInd", "SitesUsed")
+  
+  #Collated indices by region
+  RegPops <- merge(Pops, region, by = "SiteID")
+  
+  RegPopIndex <- RegPops %>%
+    filter(RawSum > 0) %>%
+    group_by(Region, Year) %>%
+    mutate(SitesUsed = length(SiteID)) %>%
+    filter(SitesUsed >= 2) 
+  RegSitesUsed <- RegPopIndex %>%
+    group_by(Region, Year) %>%
+    summarise(SitesUsed = length(SiteID))
+  
+  RegIndex <- data.frame()
+  regions <- unique(RegPopIndex$Region)
+  for (reg in regions){
+    temp <- RegPopIndex[Region == reg]
+    sites <- RegSitesUsed[Region == reg]
+    sites <- arrange(sites, Year)
+    sites$Year <- as.numeric(as.character(sites$Year))
+    if(length(unique(temp$Year)) < 2){
+      out <- data.frame(cbind(reg, sites$Year, NA, sites$SitesUsed))
+      }else{
+        if(length(unique(temp$SiteID)) < 2){
+          out <- data.frame(cbind(reg, sites$Year, NA, sites$SitesUsed))
+          }else{
+            CollModReg <- glm(TrpzInd ~ Year + SiteID - 1, family = poisson(link = "log"), data = temp)
+            out <- data.frame(cbind(reg, sites$Year, CollModReg$coef[1:length(sites$Year)], sites$SitesUsed))
+            }
+        RegIndex <- rbind(RegIndex, out)
+        }
+    }
+  
+  names(RegIndex) <- c("Region", "Year", "CollInd", "SitesUsed")
+  RegIndex <- rbind(RegIndex, ALL)
+  RegIndex$Year <- as.numeric(as.character(RegIndex$Year))
+  RegIndex$CollInd <- as.numeric(as.character(RegIndex$CollInd))
+  
+  saveRDS(allcounts, file = paste("RDSfiles/allcounts", sp, ".rds", sep = ""))
+  saveRDS(phen_all, file = paste("RDSfiles/phenology", sp, ".rds", sep = ""))
+  saveRDS(Pops, file = paste("RDSfiles/popsites", sp, ".rds", sep = ""))
+  saveRDS(RegIndex, file = paste("RDSfiles/popindex", sp, ".rds", sep = ""))
+  
+  }
+
+```
+
+
+
+
+
+
+
+
+

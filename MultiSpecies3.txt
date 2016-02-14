@@ -1,0 +1,55 @@
+
+    model {
+    for (i in 1:nsites){ # weird index because N and y different sizes due to Nt0
+      for (k in 1:nspecies){
+        # Latent suitability for site x species      
+        z[i, k] ~ dbern(omega[k])
+
+        for (j in 1:nyears){
+          # Observation model
+          # Zero-inflated poisson
+          y[i, j, k] ~ dpois(N.eff[i, j, k] + 0.00001)
+          N.eff[i, j, k] <- z[i, k] * N[i, j + 1, k]
+    
+          # Process model
+          N[i, j + 1, k] <- N[i, j, k] * lam[i, j, k] # multiply growth rate by previous size
+          log(lam[i, j, k]) <- beta0[k] + beta1[k] * log(N[i, j, k] + 1) + obsRE[i, j]
+
+        } #nyears
+      } #nspecies
+    } #nsites
+    
+    # Priors
+    # Suitability
+    for (k in 1:nspecies){
+    omega[k] ~ dunif(0, 1)
+    beta0[k] ~ dnorm(mu.r.sp, tau.r.sp)
+    beta1[k] ~ dnorm(mu.K.sp, tau.K.sp)
+    }  
+
+    # Observation RE
+    for (i in 1:nsites){
+      for (j in 1:nyears){
+        obsRE[i, j] ~ dnorm(0, tau.obs)T(-10,10) #truncating helps convergence
+      }
+    }
+
+    for (i in 1:nsites){
+      for (k in 1:nspecies){
+        N[i, 1, k] ~ dpois(Nstart[i, k])
+      }
+    }
+    
+    sigma.obs ~ dunif(0, 5)
+    tau.obs <- pow(sigma.obs, -2)
+    
+    mu.r.sp ~ dnorm(0, 0.001)
+    tau.r.sp <- pow(sigma.r.sp, -2)
+    sigma.r.sp ~ dunif(0, 5)
+    mu.K.sp ~ dnorm(0, 0.001)
+    tau.K.sp <- pow(sigma.K.sp, -2)
+    sigma.K.sp ~ dunif(0, 5)
+    
+    }
+    
+    

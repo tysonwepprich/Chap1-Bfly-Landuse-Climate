@@ -9,6 +9,7 @@ library(plyr)
 library(dplyr)
 library(data.table)
 library(reshape2)
+library(rjags)
 library(R2jags)
 
 
@@ -27,20 +28,20 @@ JAGSdat <- data[, c(1, 2, 4, 5, 9, 15, 16), with = FALSE]
 JAGSdat$TrpzInd <- round(JAGSdat$TrpzInd)
 JAGSdat$TrpzNt1 <- round(JAGSdat$TrpzNt1)
 
-SpeciesList <- readRDS(file = "data/SpeciesList.rds")
-species <- as.character(SpeciesList$CommonName)
-species[4] <- "Azures"
-species <- species[1:68] 
-
-# choose species
-spec_sel <- SpeciesList[c(10:20), "CommonName"]
-JAGSdat <- JAGSdat %>%
-  filter(CommonName %in% spec_sel)
+# SpeciesList <- readRDS(file = "data/SpeciesList.rds")
+# species <- as.character(SpeciesList$CommonName)
+# species[4] <- "Azures"
+# species <- species[1:68] 
+# 
+# # choose species
+# spec_sel <- SpeciesList[c(10:20), "CommonName"]
+# JAGSdat <- JAGSdat %>%
+#   filter(CommonName %in% spec_sel)
 
 dat <- JAGSdat %>%
   group_by(SiteID, CommonName) %>%
   mutate(LengthTS = max(Year) - min(Year), NumCounts = length(unique(Year))) %>%
-  filter(NumCounts >= 10)
+  filter(NumCounts >= 5)
 
 # what to do about missing years? 
 # can estimate in time series approach, but think I need the missing covariates, too
