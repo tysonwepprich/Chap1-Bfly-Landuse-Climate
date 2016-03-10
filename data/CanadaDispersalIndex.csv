@@ -1,0 +1,292 @@
+Family,Species,Authority,Common Name,Respondents (n),Mobility (mean),Mobility (sd),Wingspan,Range size,Larval host breadth,Conservation status
+Pieridae,Abaeis nicippe,(Cramer),Sleepy Orange,1,7.00,,26,,3,5
+Nymphalidae,Aglais milberti,(Godart),Milbert's Tortoiseshell,40,6.85,1.85,43,5559295,2,5
+Nymphalidae,Agraulis vanillae,(Linnaeus),Gulf Fritillary,2,7.00,0.00,86,,2,5
+Hesperiidae,Amblyscirtes hegon,(Scudder),Pepper And Salt Skipper,6,3.17,0.98,20,1432248,3,4
+Hesperiidae,Amblyscirtes oslari,(Skinner),Oslar's Roadside Skipper,1,5.00,,24,636463,1,4
+Hesperiidae,Amblyscirtes vialis,(W. H. Edwards),Common Roadside Skipper,17,3.71,1.83,21.5,3591965,3,4
+Hesperiidae,Anatrytone logan,(W. H. Edwards),Delaware Skipper,16,5.13,1.67,28,2248551,3,5
+Hesperiidae,Ancyloxypha numitor,(Fabricius),Least Skipper,25,3.24,1.92,21.5,2361797,3,5
+Pieridae,Anthocharis sara sara,Lucas,Pacific Orangetip,9,5.78,1.79,36,1781966,3,5
+Pieridae,Anthocharis sara stella,W. H. Edwards,Stella Orangetip,2,6.50,0.71,35,,3,5
+Riodinidae,Apodemia mormo,(C. Felder & R. Felder),Mormon Metalmark,7,4.14,2.61,28.5,1437668,2,5
+Nymphalidae,Asterocampa celtis,(Boisduval & Le Conte),Hackberry Emperor,9,5.33,2.00,43,2345170,2,5
+Nymphalidae,Asterocampa clyton,(Boisduval & Le Conte),Tawny Emperor,9,5.33,2.18,52,1735670,2,5
+Hesperiidae,Atalopedes campestris,(Boisduval),Sachem,7,6.29,1.80,26.5,3071590,3,5
+Hesperiidae,Atrytonopsis hianna,,Dusted Skipper,2,1.50,0.71,30,1545483,2,4
+Papilionidae,Battus philenor,(Linnaeus),Pipevine Swallowtail,8,7.13,1.96,70.5,2633472,1,5
+Nymphalidae,Boloria alaskensis,(W. Holland),Mountain Fritillary,4,4.75,1.26,33,,,5
+Nymphalidae,Boloria alberta,(W. H. Edwards),Alberta Fritillary,2,6.50,0.71,40,90033,1,3
+Nymphalidae,Boloria astarte,(E. Doubleday),Astarte Fritillary,4,6.25,1.26,45.5,1178379,1,5
+Nymphalidae,Boloria bellona,(Fabricius),Meadow Fritillary,26,5.42,1.91,39.5,3401935,2,5
+Nymphalidae,Boloria chariclea,(Schneider),Arctic Fritillary,6,4.75,2.14,38,7640736,3,5
+Nymphalidae,Boloria epithore,(W. H. Edwards),Pacific Fritillary,7,5.14,1.86,39,633822,2,5
+Nymphalidae,Boloria eunomia,(Esper),Bog Fritillary,15,3.13,1.77,36,4796048,3,5
+Nymphalidae,Boloria freija,(Thunberg),Freija Fritillary,11,4.45,2.11,33,6059476,3,5
+Nymphalidae,Boloria frigga,(Thunberg),Frigga Fritillary,11,3.82,1.94,36.5,5484093,3,5
+Nymphalidae,Boloria improba,(Butler),Dingy Fritillary,4,3.50,1.29,31,,2,5
+Nymphalidae,Boloria natazhati,(Gibson),Beringian Fritillary,2,4.50,0.71,38,141001,,3
+Nymphalidae,Boloria polaris,(Boisduval),Polaris Fritillary,6,5.67,1.75,35,3979821,3,5
+Nymphalidae,Boloria selene,([Schiffermüller]),Silver-bordered Fritillary,27,5.37,1.85,43,5056964,2,5
+Lycaenidae,Callophrys affinis,(W. H. Edwards),Western Green Hairstreak,5,4.40,0.89,24,25313,1,5
+Lycaenidae,Callophrys augustinus,(Westwood),Brown Elfin,31,3.48,1.63,22.5,4352986,3,5
+Lycaenidae,Callophrys eryphon,(Boisduval),Western Pine Elfin,16,3.63,2.13,25,2752667,2,5
+Lycaenidae,Callophrys gryneus gryneus,(Hübner),Olive Juniper Hairstreak,5,2.20,0.45,22.5,1354170,2,5
+Lycaenidae,Callophrys gryneus plicataria,K. Johnson,Barry's Hairstreak,2,4.00,1.41,25.5,,1,
+Lycaenidae,Callophrys gryneus rosneri,K. Johnson,Rosner's Hairstreak,3,5.33,0.58,24,,1,3
+Lycaenidae,Callophrys gryneus siva,(W. H. Edwards),Siva Juniper Hairstreak,8,4.00,1.41,,871242,,5
+Lycaenidae,Callophrys henrici,(Grote & Robinson),Henry's Elfin,10,2.90,1.37,22.5,1649874,3,5
+Lycaenidae,Callophrys irus,(Godart),Frosted Elfin,2,1.50,0.71,23,674086,2,3
+Lycaenidae,Callophrys johnsoni,(Skinner),Johnson's Hairstreak,2,3.00,1.41,27.5,211670,1,3
+Lycaenidae,Callophrys lanoraieensis,(Sheppard),Bog Elfin,4,1.75,0.96,17.5,134499,1,3
+Lycaenidae,Callophrys mossii,(Hy. Edwards),Moss's Elfin,1,5.00,,23.5,442785,2,4
+Lycaenidae,Callophrys niphon,(Hübner),Eastern Pine Elfin,20,4.20,2.09,24.5,2326424,2,5
+Lycaenidae,Callophrys polios,(Cook & Watson),Hoary Elfin,16,3.81,1.91,22.5,2956753,2,5
+Lycaenidae,Callophrys sheridanii,(W. H. Edwards),Sheridan's Hairstreak,6,3.17,1.17,22,874518,2,5
+Lycaenidae,Callophrys spinetorum,(Hewitson),Thicket Hairstreak,6,4.33,1.21,26.5,1330560,1,5
+Lycaenidae,Calycopis cecrops,(Fabricius),Red-banded Hairstreak,1,4.00,,29,1156038,1,5
+Hesperiidae,Carterocephalus palaemon,(Pallas),Arctic Skipper,24,3.92,1.69,25.5,4242159,2,5
+Lycaenidae,Celastrina echo,(W. H. Edwards),Spring Azure,42,5.50,1.90,23,,3,5
+Lycaenidae,Celastrina lucia,(W. Kirby),Lucia Azure,7,3.71,1.70,,,2,5
+Lycaenidae,Celastrina neglecta,(W. H. Edwards),Summer Azure,22,6.27,1.93,26,,3,5
+Lycaenidae,Celastrina serotina,Pavulaan & D. Wright,Cherry Gall Azure,3,6.33,1.15,27,,3,5
+Nymphalidae,Cercyonis oetus,(Boisduval),Small Wood-nymph,7,5.00,1.63,37.5,1201559,3,5
+Nymphalidae,Cercyonis pegala,(Fabricius),Common Wood-nymph,41,5.24,1.64,48,3956841,3,5
+Nymphalidae,Cercyonis sthenele,(Boisduval),Great Basin Wood-nymph,6,5.50,1.38,41.5,840127,3,5
+Nymphalidae,Chlosyne acastus,(W. H. Edwards),Sagebrush Checkerspot,4,4.00,1.63,38.5,901755,2,4
+Nymphalidae,Chlosyne damoetas,(Skinner),Damoetas Checkerspot,3,5.00,1.00,36,147237,2,4
+Nymphalidae,Chlosyne gorgone,(Hübner),Gorgone Checkerspot,7,4.43,1.27,32.5,2097116,3,5
+Nymphalidae,Chlosyne harrisii,(Scudder),Harris's Checkerspot,16,4.19,1.80,35.5,,1,4
+Nymphalidae,Chlosyne hoffmanni,(Behr),Hoffmann's Checkerspot,3,4.00,1.73,33,125311,2,4
+Nymphalidae,Chlosyne nycteis,(E. Doubleday),Silvery Checkerspot,17,4.29,1.45,39,2479348,3,4
+Nymphalidae,Chlosyne palla,(Boisduval),Northern Checkerspot,8,5.00,0.93,36,766921,3,5
+Nymphalidae,Coenonympha tullia nipisiquit,McDunnough,Maritime Ringlet,2,2.50,2.12,34,,1,1
+Nymphalidae,Coenonympha tullia tullia,(Müller),Common Ringlet,43,5.47,2.40,33,6018923,3,5
+Pieridae,Colias alexandra,W. H. Edwards,Queen Alexandra's Sulphur,10,6.25,1.84,47.5,2585826,3,5
+Pieridae,Colias canadensis,Ferris,Canada Sulphur,4,5.75,1.71,39.5,,3,4
+Pieridae,Colias christina,W. H. Edwards,Christina Sulphur,6,6.33,1.51,43.5,,1,5
+Pieridae,Colias eurytheme,Boisduval,Orange Sulphur,41,7.59,1.71,44.5,5790877,3,5
+Pieridae,Colias gigantea,Strecker,Giant Sulphur,5,5.80,1.64,46,3047847,2,5
+Pieridae,Colias hecla,Lefèbvre,Hecla Sulphur,4,6.00,1.41,39,4640832,3,5
+Pieridae,Colias interior,Scudder,Pink-edged Sulphur,27,5.56,1.79,41,2612344,2,5
+Pieridae,Colias meadii,W. H. Edwards,Mead's Sulphur,5,5.20,1.92,39.5,258191,3,4
+Pieridae,Colias nastes,Boisduval,Labrador Sulphur,8,5.50,1.60,35,3562433,3,5
+Pieridae,Colias occidentalis,Scudder,Western Sulphur,5,5.60,2.61,46.5,213902,3,3
+Pieridae,Colias palaeno,(Linnaeus),Palaeno Sulphur,6,5.83,1.47,38.5,3223350,2,5
+Pieridae,Colias pelidne,Boisduval & Le Conte,Pelidne Sulphur,4,4.75,2.22,38.5,1849314,1,5
+Pieridae,Colias philodice,Godart,Clouded Sulphur,42,7.33,1.79,43,6495296,3,5
+Lycaenidae,Cupido amyntula,(Boisduval),Western Tailed Blue,19,4.26,1.45,22,4328050,3,5
+Lycaenidae,Cupido comyntas,(Godart),Eastern Tailed Blue,29,5.34,1.80,21,,3,5
+Nymphalidae,Danaus plexippus,(Linnaeus),Monarch,43,9.50,1.16,99,6747446,3,5
+Lycaenidae,Echinargus isola,(Reakirt),Reakirt's Blue,1,3.00,,19.5,,3,5
+Hesperiidae,Epargyreus clarus,(Cramer),Silver-spotted Skipper,32,6.19,2.15,41,3236771,3,5
+Nymphalidae,Erebia disa,(Thunberg),Disa Alpine,2,4.50,0.71,39.5,,,5
+Nymphalidae,Erebia discoidalis,(W. Kirby),Red-disked Alpine,8,4.13,2.23,39.5,3104757,3,5
+Nymphalidae,Erebia epipsodea,Butler,Common Alpine,10,5.20,1.75,39.5,1811730,3,5
+Nymphalidae,Erebia fasciata,Butler,Banded Alpine,2,4.50,0.71,45.5,1966141,,5
+Nymphalidae,Erebia lafontainei,Troubridge & Philip,Reddish Alpine,2,4.50,0.71,37,,,3
+Nymphalidae,Erebia mackinleyensis,Gunder,Mt. Mckinley Alpine,3,5.67,1.15,47,,3,4
+Nymphalidae,Erebia magdalena,Strecker,Magdalena Alpine,3,5.33,1.53,43,928564,3,5
+Nymphalidae,Erebia mancinus,E. Doubleday,Taiga Alpine,4,4.50,1.29,39,,,5
+Nymphalidae,Erebia occulta,Roos & Kimmich,Scree Alpine,2,3.50,2.12,36.5,317815,,4
+Nymphalidae,Erebia pawloskii,Ménétriés,Yellow Dotted Alpine,4,3.25,0.50,,,,5
+Nymphalidae,Erebia rossii,(J. Curtis),Ross's Alpine,4,4.75,0.96,37.5,2840903,2,5
+Nymphalidae,Erebia vidleri,Elwes,Vidler's Alpine,3,5.67,0.58,40,155506,,4
+Nymphalidae,Erebia youngi,W. Holland,Four-dotted Alpine,2,4.50,0.71,39.5,,,5
+Lycaenidae,Erora laeta,(W. H. Edwards),Early Hairstreak,4,2.50,1.29,22.5,749446,2,
+Hesperiidae,Erynnis afranius,(Lintner),Afranius Duskywing,2,5.00,1.41,28,975700,3,5
+Hesperiidae,Erynnis baptisiae,(W. Forbes),Wild Indigo Duskywing,9,5.56,1.42,31.5,1356612,3,5
+Hesperiidae,Erynnis brizo,(Boisduval & Le Conte),Sleepy Duskywing,6,4.00,1.41,31.5,2228075,1,5
+Hesperiidae,Erynnis horatius,(Scudder & Burgess),Horace's Duskywing,1,4.00,,33.5,1515947,2,5
+Hesperiidae,Erynnis icelus,(Scudder & Burgess),Dreamy Duskywing,30,4.27,1.55,26.5,3544127,3,5
+Hesperiidae,Erynnis juvenalis,(Fabricius),Juvenal's Duskywing,21,5.00,1.48,33.5,646405,2,5
+Hesperiidae,Erynnis lucilius,(Scudder & Burgess),Columbine Duskywing,11,4.00,1.84,25,3319581,3,4
+Hesperiidae,Erynnis martialis,(Scudder),Mottled Duskywing,6,2.33,1.51,27,1363841,3,3
+Hesperiidae,Erynnis pacuvius,(Lintner),Pacuvius Duskywing,3,4.00,2.00,31,689296,2,5
+Hesperiidae,Erynnis persius,(Scudder),Persius Duskywing,11,3.64,1.91,27.5,3319581,2,5
+Hesperiidae,Erynnis propertius,(Scudder & Burgess),Propertius Duskywing,6,5.17,1.17,34,278977,2,5
+Pieridae,Euchloe ausonides,(Lucas),Large Marble,13,6.08,2.10,39,3360715,3,5
+Pieridae,Euchloe creusa,(E. Doubleday),Northern Marble,5,5.60,1.52,30,1969322,3,5
+Pieridae,Euchloe lotta,Beutenmüller,Desert Marble,4,6.50,1.29,39,,3,4
+Pieridae,Euchloe naina,Kozhanchikov,Green Marble,3,5.00,2.00,33,,,
+Pieridae,Euchloe olympia,(W. H. Edwards),Olympia Marble,14,4.00,1.80,35,1491416,3,4
+Lycaenidae,Euphilotes ancilla,(W. Barnes & McDunnough),Rocky Mountain Dotted Blue,3,2.33,0.58,20,,2,5
+Lycaenidae,Euphilotes battoides,(Behr),Square-spotted Blue,7,2.86,0.69,21.5,943716,2,5
+Nymphalidae,Euphydryas anicia,(E. Doubleday),Anicia Checkerspot,8,4.88,1.36,43,1632248,3,5
+Nymphalidae,Euphydryas chalcedona,(E. Doubleday),Variable Checkerspot,2,5.50,0.71,43,1632248,3,5
+Nymphalidae,Euphydryas colon colon,(W. H. Edwards),Colon Checkerspot,3,5.33,2.08,,,,4
+Nymphalidae,Euphydryas colon paradoxa,McDunnough,Contrary Checkerspot,2,6.50,0.71,,,,4
+Nymphalidae,Euphydryas editha,(Boisduval),Edith's Checkerspot,10,4.60,1.07,33,1000350,3,5
+Nymphalidae,Euphydryas gillettii,(W. Barnes),Gillette's Checkerspot,5,3.80,2.68,40.5,202710,1,3
+Nymphalidae,Euphydryas phaeton,(Drury),Baltimore Checkerspot,24,3.96,1.75,57,1345112,2,4
+Hesperiidae,Euphyes bimacula,(Grote & Robinson),Two-spotted Skipper,6,2.00,0.63,27.5,947733,1,4
+Hesperiidae,Euphyes conspicua,(W. H. Edwards),Black Dash,7,2.86,1.07,29,452252,1,4
+Hesperiidae,Euphyes dion,(W. H. Edwards),Dion Skipper,9,2.89,0.60,32,1313296,2,4
+Hesperiidae,Euphyes dukesi,(Lindsey),Duke's Skipper,3,1.00,1.00,34,356634,2,3
+Hesperiidae,Euphyes vestris,(Boisduval),Dun Skipper,31,4.97,1.82,25,3279571,2,5
+Nymphalidae,Euptoieta claudia,(Cramer),Variegated Fritillary,20,7.70,2.00,52,4192175,3,5
+Pieridae,Eurema mexicana,(Boisduval),Mexican Yellow,1,8.00,,38.5,,3,5
+Papilionidae,Eurytides marcellus,(Cramer),Zebra Swallowtail,2,8.50,0.71,61,1370780,1,5
+Lycaenidae,Feniseca tarquinius,(Fabricius),Harvester,19,3.42,2.24,27.5,1825627,1,4
+Lycaenidae,Glaucopsyche lygdamus,(E. Doubleday),Silvery Blue,35,5.37,2.00,23,,3,5
+Lycaenidae,Glaucopsyche piasus,(Boisduval),Arrowhead Blue,8,3.88,0.99,28.5,990380,3,5
+Hesperiidae,Hesperia assiniboia,(Lyman),Plains Skipper,3,6.67,0.58,25.5,,3,5
+Hesperiidae,Hesperia colorado,(Scudder),Western Branded Skipper,4,6.50,1.00,28.5,,3,5
+Hesperiidae,Hesperia comma,(Linnaeus),Common Branded Skipper,15,5.13,1.85,26,5529593,3,5
+Hesperiidae,Hesperia dacotae,(Skinner),Dakota Skipper,2,3.50,0.71,25,172716,3,2
+Hesperiidae,Hesperia juba,(Scudder),Juba Skipper,6,5.83,2.32,30.5,1059529,3,5
+Hesperiidae,Hesperia leonardus,T. Harris,Leonard's Skipper,11,4.73,2.20,31,1536579,3,4
+Hesperiidae,Hesperia nevada,(Scudder),Nevada Skipper,3,5.00,2.65,26.5,923675,3,5
+Hesperiidae,Hesperia ottoe,W. H. Edwards,Ottoe Skipper,1,2.00,,32,768786,3,3
+Hesperiidae,Hesperia sassacus,T. Harris,Indian Skipper,12,4.25,0.97,27.5,834475,3,4
+Hesperiidae,Hesperia uncas,W. H. Edwards,Uncas Skipper,3,4.00,2.65,27.5,1562656,3,5
+Hesperiidae,Hylephila phyleus,(Drury),Fiery Skipper,10,8.40,1.26,27.5,2617242,3,5
+Nymphalidae,Junonia coenia,Hübner,Common Buckeye,19,7.53,2.50,41,3708114,3,5
+Lycaenidae,Leptotes marina,(Reakirt),Marine Blue,3,5.33,2.31,20.5,2305653,3,5
+Hesperiidae,Lerema accius,(J. E. Smith),Clouded Skipper,1,3.00,,,1301157,,5
+Nymphalidae,Lethe anthedon,A. Clark,Northern Pearly-eye,34,5.12,1.70,48,1815851,3,4
+Nymphalidae,Lethe appalachia,R. Chermock,Appalachian Brown,13,4.15,1.82,45,2087414,3,4
+Nymphalidae,Lethe eurydice,(Linnaeus),Eyed Brown,28,4.29,2.13,43,2070953,3,4
+Nymphalidae,Libytheana carinenta,(Cramer),American Snout,10,8.50,1.72,46,,1,5
+Nymphalidae,Limenitis archippus,(Cramer),Viceroy,37,6.81,1.66,67,4568031,3,5
+Nymphalidae,Limenitis arthemis,(Drury),White Admiral,36,6.97,1.51,62.5,5240753,3,5
+Nymphalidae,Limenitis lorquini,Boisduval,Lorquin's Admiral,9,6.33,1.73,59,722099,3,5
+Nymphalidae,Limenitis weidemeyerii,W. H. Edwards,Weidemeyer's Admiral,5,6.00,1.87,63.5,942964,3,5
+Lycaenidae,Lycaena cupreus,(W. H. Edwards),Lustrous Copper,4,4.25,1.50,26.5,521889,2,5
+Lycaenidae,Lycaena dione,(Scudder),Grey Copper,6,4.50,2.26,33.5,1247679,2,5
+Lycaenidae,Lycaena dorcas,W. Kirby,Dorcas Copper,14,2.93,1.21,23,2284681,1,5
+Lycaenidae,Lycaena dospassosi,McDunnough,Maritime Copper,1,1.00,,28,,1,2
+Lycaenidae,Lycaena editha,(Mead),Edith's Copper,4,4.00,1.83,,453944,,5
+Lycaenidae,Lycaena epixanthe,(Boisduval & Le Conte),Bog Copper,17,2.00,1.84,19.5,1262019,2,4
+Lycaenidae,Lycaena helloides,(Boisduval),Purplish Copper,16,3.94,1.81,28,,3,5
+Lycaenidae,Lycaena heteronea,Boisduval,Blue Copper,6,4.00,1.55,29.5,863146,2,5
+Lycaenidae,Lycaena hyllus,(Cramer),Bronze Copper,27,4.19,1.88,30.5,2318023,2,4
+Lycaenidae,Lycaena mariposa,(Reakirt),Mariposa Copper,8,4.00,1.41,25.5,1067002,1,5
+Lycaenidae,Lycaena nivalis,(Boisduval),Lilac-bordered Copper,8,3.50,1.20,27,601826,1,5
+Lycaenidae,Lycaena phlaeas,(Linnaeus),American Copper,29,4.55,1.88,25.5,4768971,2,5
+Lycaenidae,Lycaena rubidus,(Behr),Ruddy Copper,4,3.75,1.71,30,996136,2,5
+Nymphalidae,Megisto cymela,(Cramer),Little Wood-Satyr,27,5.37,2.19,35.5,2274138,3,5
+Pieridae,Nathalis iole,Boisduval,Dainty Sulphur,4,5.00,3.83,26,3744326,3,5
+Nymphalidae,Neominois ridingsii,(W. H. Edwards),Ridings' Satyr,4,5.00,1.83,39,1070549,2,5
+Pieridae,Neophasia menapia,(C. Felder & R. Felder),Pine White,9,5.67,2.00,46,1248742,3,5
+Nymphalidae,Nymphalis antiopa,(Linnaeus),Mourning Cloak,47,7.19,1.52,62,,3,5
+Nymphalidae,Nymphalis californica,(Boisduval),California Tortoiseshell,12,8.50,1.38,53,2373450,2,5
+Nymphalidae,Nymphalis l-album,(Esper),Compton Tortoiseshell,29,6.69,1.63,61,5436613,3,5
+Hesperiidae,Oarisma garita,(Reakirt),Garita Skipperling,7,3.43,1.13,22.5,1201563,3,5
+Hesperiidae,Oarisma poweshiek,(Parker),Poweshiek Skipperling,2,1.00,1.41,27,222246,3,2
+Hesperiidae,Ochlodes sylvanoides,(Boisduval),Woodland Skipper,7,5.29,2.14,25.5,1130512,3,5
+Nymphalidae,Oeneis alberta,Elwes,Alberta Arctic,3,6.00,1.73,38.5,434524,3,4
+Nymphalidae,Oeneis alpina,Kurentsov,Sentinel Arctic,2,4.50,3.54,41.5,356276,,3
+Nymphalidae,Oeneis bore,(Esper),White-veined Arctic,4,5.50,1.29,43,3121362,3,5
+Nymphalidae,Oeneis chryxus,(E. Doubleday),Chryxus Arctic,18,4.22,1.80,46.5,3269212,3,5
+Nymphalidae,Oeneis jutta,Hübner,Jutta Arctic,14,2.86,1.83,45,7561228,3,5
+Nymphalidae,Oeneis macounii,(W. H. Edwards),Macoun's Arctic,10,4.30,1.89,55.5,1204984,,5
+Nymphalidae,Oeneis melissa,(Fabricius),Melissa Arctic,6,5.67,1.63,42,,3,5
+Nymphalidae,Oeneis nevadensis,(C. Felder & R. Felder),Great Arctic,4,5.50,1.29,55,181347,,5
+Nymphalidae,Oeneis philipi,Troubridge,Philip's Arctic,2,5.50,2.12,47,,2,3
+Nymphalidae,Oeneis polixenes,(Fabricius),Polixenes Arctic,6,5.33,1.21,42,3408053,3,5
+Nymphalidae,Oeneis uhleri,(Reakirt),Uhler's Arctic,5,5.00,2.12,40.5,1172245,3,5
+Hesperiidae,Panoquina ocola,(W. H. Edwards),Ocola Skipper,2,7.00,1.41,31,1337129,3,5
+Papilionidae,Papilio brevicauda,Saunders,Short-tailed Swallowtail,3,2.67,1.53,65,185612,3,3
+Papilionidae,Papilio canadensis,Rothschild & Jordan,Canadian Tiger Swallowtail,34,7.79,1.75,71.5,5371368,3,5
+Papilionidae,Papilio cresphontes,Cramer,Giant Swallowtail,13,7.00,2.41,98,2676327,2,5
+Papilionidae,Papilio eurymedon,Lucas,Pale Swallowtail,10,8.00,0.67,81,985010,3,5
+Papilionidae,Papilio glaucus,Linnaeus,Eastern Tiger Swallowtail,14,7.50,2.14,87.5,1317836,3,5
+Papilionidae,Papilio indra,Reakirt,Indra Swallowtail,4,5.00,1.83,65,888717,3,5
+Papilionidae,Papilio machaon,Linnaeus,Old World Swallowtail,8,7.00,1.51,73,2696092,3,5
+Papilionidae,Papilio multicaudata,W. F. Kirby,Two-tailed Swallowtail,7,7.43,0.79,81,1881405,3,5
+Papilionidae,Papilio polyxenes,Fabricius,Black Swallowtail,30,7.67,1.66,73,2923205,3,5
+Papilionidae,Papilio rutulus,Lucas,Western Tiger Swallowtail,11,7.91,0.83,77.5,1317836,3,5
+Papilionidae,Papilio troilus,Linnaeus,Spicebush Swallowtail,9,6.11,1.62,80,1914139,3,4
+Papilionidae,Papilio zelicaon,Lucas,Anise Swallowtail,13,7.85,1.28,66,1705538,3,5
+Papilionidae,Parnassius clodius,Ménétriés,Clodius Parnassian,9,6.11,1.90,59,724629,2,5
+Papilionidae,Parnassius eversmanni,[Ménétriés],Eversmann's Parnassian,5,4.60,2.30,50,1217617,2,4
+Papilionidae,Parnassius phoebus,(Fabricius),Phoebus Parnassian,3,5.33,2.08,51.5,2139014,2,5
+Papilionidae,Parnassius smintheus,E. Doubleday,Rocky Mountain Parnassian,10,5.40,1.58,54,,2,5
+Lycaenidae,Parrhasius m-album,(Boisduval & Le Conte),White-m Hairstreak,2,6.50,0.71,30.5,76981,2,5
+Pieridae,Phoebis sennae,(Linnaeus),Cloudless Sulphur,2,8.00,1.41,70.5,3251102,3,5
+Hesperiidae,Pholisora catullus,(Fabricius),Common Sootywing,11,4.55,1.92,24.5,,3,5
+Nymphalidae,Phyciodes batesii,(Reakirt),Tawny Crescent,14,4.86,1.99,31.5,1901860,2,4
+Nymphalidae,Phyciodes cocyta,(Cramer),Northern Crescent,35,5.43,1.54,30,,2,5
+Nymphalidae,Phyciodes mylitta,(W. H. Edwards),Mylitta Crescent,10,5.70,1.49,29.5,1080379,3,5
+Nymphalidae,Phyciodes pallida,(W. H. Edwards),Pale Crescent,4,5.25,0.96,38.5,618463,2,5
+Nymphalidae,Phyciodes pulchella,(Boisduval),Field Crescent,10,4.80,0.92,30,,2,5
+Nymphalidae,Phyciodes tharos,(Drury),Pearl Crescent,28,5.61,1.72,27.5,2610500,2,5
+Pieridae,Pieris angelika,Eitschberger,Arctic White,3,5.00,1.00,37.5,,,5
+Pieridae,Pieris marginalis,Scudder,Margined White,6,5.33,2.07,41,,3,5
+Pieridae,Pieris oleracea,(T. Harris),Mustard White,25,5.36,1.78,41,6115267,3,4
+Pieridae,Pieris rapae,(Linnaeus),Cabbage White,45,7.56,1.96,39.5,6379427,3,5
+Pieridae,Pieris virginiensis,W. H. Edwards,West Virginia White,7,2.57,1.27,36,495032,1,3
+Lycaenidae,Plebejus anna,(W. H. Edwards),Anna Blue,3,3.67,1.15,,,,
+Lycaenidae,Plebejus glandon,(de Prunner),Arctic Blue,5,4.60,1.14,20,6508385,3,5
+Lycaenidae,Plebejus icarioides,(Boisduval),Boisduval's Blue,10,4.00,1.70,26.5,1359048,2,5
+Lycaenidae,Plebejus idas,(Linnaeus),Northern Blue,13,4.15,1.57,22.5,4549269,3,5
+Lycaenidae,Plebejus lupini,(Boisduval),Acmon Blue,8,3.38,0.92,22,286441,3,5
+Lycaenidae,Plebejus melissa,(W. H. Edwards),Melissa Blue,9,4.67,1.58,23,2621919,3,5
+Lycaenidae,Plebejus optilete,(Knoch),Cranberry Blue,6,3.33,1.37,21,2447868,2,5
+Lycaenidae,Plebejus saepiolus,(Boisduval),Greenish Blue,16,4.31,1.54,24.5,4473776,3,5
+Lycaenidae,Plebejus shasta,(W. H. Edwards),Shasta Blue,4,3.00,0.82,21,716194,3,5
+Hesperiidae,Poanes hobomok,(T. Harris),Hobomok Skipper,25,5.64,1.98,28,2286873,3,5
+Hesperiidae,Poanes massasoit,(Scudder),Mulberry Wing,7,1.86,1.21,25.5,512785,2,4
+Hesperiidae,Poanes viator,(W. H. Edwards),Broad-winged Skipper,11,2.73,1.01,30.5,995406,2,5
+Hesperiidae,Poanes zabulon,(Boisduval & Le Conte),Zabulon Skipper ,1,7.00,,,980117,,5
+Hesperiidae,Polites draco,(W. H. Edwards),Draco Skipper,3,4.67,1.53,25.5,643494,3,5
+Hesperiidae,Polites mystic,(W. H. Edwards),Long Dash Skipper,24,5.10,1.74,26,2316525,3,5
+Hesperiidae,Polites origenes,(Fabricius),Crossline Skipper,10,4.50,1.35,26.5,1592270,3,4
+Hesperiidae,Polites peckius,(W. Kirby),Peck's Skipper,25,4.76,1.71,23,3317985,3,5
+Hesperiidae,Polites rhesus,(W. H. Edwards),Rhesus Skipper,1,6.00,,27.5,,3,4
+Hesperiidae,Polites sabuleti,(Boisduval),Sandhill Skipper,3,5.67,2.52,20,903807,3,5
+Hesperiidae,Polites sonora,(Scudder),Sonoran Skipper,4,4.75,2.22,26,498916,3,4
+Hesperiidae,Polites themistocles,(Latreille),Tawny-edged Skipper,26,4.73,1.73,23.5,3333786,3,5
+Nymphalidae,Polygonia comma,(T. Harris),Eastern Comma,28,6.64,1.64,46.5,2301981,3,5
+Nymphalidae,Polygonia faunus,(W. H. Edwards),Green Comma,27,5.78,1.48,40.5,,3,5
+Nymphalidae,Polygonia gracilis,(Grote & Robinson),Hoary Comma,14,5.93,1.44,38.5,3210732,3,5
+Nymphalidae,Polygonia interrogationis,(Fabricius),Question Mark,29,7.00,1.79,56.5,3044427,3,5
+Nymphalidae,Polygonia oreas,(W. H. Edwards),Oreas Comma,4,5.00,2.16,48.5,,2,5
+Nymphalidae,Polygonia progne,(Cramer),Grey Comma,24,5.96,1.43,43.5,3564721,2,4
+Nymphalidae,Polygonia satyrus,(W. H. Edwards),Satyr Comma,21,6.10,1.55,46.5,3287853,2,5
+Lycaenidae,Polyommatus icarus,Rottemberg,European Common Blue,2,4.00,1.41,,,,
+Hesperiidae,Pompeius verna,(W. H. Edwards),Little Glassywing,9,4.33,1.73,28.5,1300755,3,5
+Pieridae,Pontia beckerii,(W. H. Edwards),Becker's White,6,6.50,1.97,40.5,,3,5
+Pieridae,Pontia occidentalis,(Reakirt),Western White,11,7.45,1.63,37.5,,3,5
+Pieridae,Pontia protodice,(Boisduval & Le Conte),Checkered White,13,7.23,2.09,41,4378013,3,4
+Pieridae,Pontia sisymbrii,(Boisduval),Spring White,6,5.67,1.37,35.5,2131188,3,5
+Hesperiidae,Pyrgus centaureae,(Rambur),Grizzled Skipper,7,4.14,1.35,25,3782812,2,5
+Hesperiidae,Pyrgus communis,(Grote),Common Checkered Skipper,10,5.70,1.77,26,,3,5
+Hesperiidae,Pyrgus ruralis,(Boisduval),Two-banded Checkered Skipper,5,5.00,1.87,23,703032,3,5
+Hesperiidae,Pyrgus scriptura,(Boisduval),Small Checkered Skipper,1,4.00,,19,844648,2,5
+Pieridae,Pyrisitia lisa,(Boisduval & Le Conte),Little Yellow,10,8.30,1.34,33.5,2876058,3,5
+Lycaenidae,Satyrium acadica,(W. H. Edwards),Acadian Hairstreak,22,4.23,1.93,28,1685401,2,5
+Lycaenidae,Satyrium behrii,(W. H. Edwards),Behr's Hairstreak,6,3.50,1.87,26.5,674518,1,5
+Lycaenidae,Satyrium calanus,(Hübner),Banded Hairstreak,24,4.79,1.65,28.5,2095865,3,5
+Lycaenidae,Satyrium californica,(W. H. Edwards),California Hairstreak,4,4.75,1.50,29.5,720301,3,5
+Lycaenidae,Satyrium caryaevorus,(McDunnough),Hickory Hairstreak,9,3.78,1.39,25,747439,3,4
+Lycaenidae,Satyrium edwardsii,(Grote & Robinson),Edwards' Hairstreak,6,3.83,1.17,25,1404580,2,4
+Lycaenidae,Satyrium liparops,(Le Conte),Striped Hairstreak,20,4.60,1.50,24.5,2850670,3,5
+Lycaenidae,Satyrium saepium,(Boisduval),Hedgerow Hairstreak,4,3.25,1.50,28,831810,2,5
+Lycaenidae,Satyrium semiluna,Klots,Halfmoon Hairstreak,5,3.40,1.14,,,,4
+Lycaenidae,Satyrium sylvinus,(Boisduval),Sylvan Hairstreak,4,3.50,1.29,27.5,1034204,2,5
+Lycaenidae,Satyrium titus,(Fabricius),Coral Hairstreak,26,4.54,1.58,28,3293013,3,4
+Nymphalidae,Speyeria aphrodite,(Fabricius),Aphrodite Fritillary,26,6.54,1.84,62,2702042,3,5
+Nymphalidae,Speyeria atlantis,(W. H. Edwards),Atlantis Fritillary,27,7.00,1.69,57,4081210,3,5
+Nymphalidae,Speyeria callippe,(Boisduval),Callippe Fritillary,10,6.80,1.14,59.5,1398973,3,5
+Nymphalidae,Speyeria cybele,(Fabricius),Great Spangled Fritillary,41,7.10,1.69,75,3174914,3,5
+Nymphalidae,Speyeria edwardsii,(Reakirt),Edwards' Fritillary,3,6.33,0.58,65,627286,2,5
+Nymphalidae,Speyeria egleis,(Behr),Great Basin Fritillary ,4,5.75,2.06,,574959,,5
+Nymphalidae,Speyeria hesperis,(W. H. Edwards),Northwestern Fritillary,6,5.67,1.97,51.5,,,5
+Nymphalidae,Speyeria hydaspe,(Boisduval),Hydaspe Fritillary,9,6.67,1.22,52,803909,3,4
+Nymphalidae,Speyeria idalia,(Drury),Regal Fritillary,4,4.50,3.70,79,1228735,3,3
+Nymphalidae,Speyeria mormonia,(Boisduval),Mormon Fritillary,9,5.56,2.01,45,1230288,3,5
+Nymphalidae,Speyeria zerene,(Boisduval),Zerene Fritillary,8,6.88,0.64,57,1106855,,5
+Hesperiidae,Staphylus hayhurstii,(W. H. Edwards),Hayhurst's Scallopwing,1,3.00,,21.5,1082803,1,5
+Lycaenidae,Strymon melinus,(Hübner),Grey Hairstreak,21,6.00,1.79,26,,3,5
+Hesperiidae,Thorybes bathyllus,(J. E. Smith),Southern Cloudywing,2,5.00,0.00,35,1482360,3,5
+Hesperiidae,Thorybes pylades,(Scudder),Northern Cloudywing,24,4.79,2.11,33,4089033,3,5
+Hesperiidae,Thymelicus lineola,(Ochsenheimer),European Skipper,28,5.50,2.59,22.5,,3,5
+Hesperiidae,Urbanus proteus,(Linnaeus),Long-tailed Skipper,1,7.00,,41.5,1500364,3,5
+Nymphalidae,Vanessa annabella,(W. D. Field),West Coast Lady,9,7.67,2.12,43.5,,3,5
+Nymphalidae,Vanessa atalanta,(Linnaeus),Red Admiral,40,8.31,1.59,51,,3,5
+Nymphalidae,Vanessa cardui,(Linnaeus),Painted Lady,42,8.63,1.60,54,7848075,3,5
+Nymphalidae,Vanessa virginiensis,(Drury),American Lady,33,8.09,1.66,46.5,,3,5
+Hesperiidae,Wallengrenia egeremet,(Scudder),Northern Broken-dash,10,4.30,1.49,26.5,1618906,3,5
+Pieridae,Zerene cesonia,(Stoll),Southern Dogface,4,8.00,0.82,53.5,,,5

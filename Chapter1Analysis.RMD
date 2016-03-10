@@ -28,18 +28,23 @@ Finally, the model!
 - 
 
 ```{r packages, echo=FALSE}
-list.of.packages <- c("devtools", "parallel", "dplyr", "tidyr", 
-                      "readr", "data.table", "mgcv")
+list.of.packages <- c("devtools", "parallel", "plyr", "dplyr", "tidyr", 
+                      "readr", "data.table", "mgcv", "lubridate", "lme4",
+                      "MuMIn")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages) > 0) install.packages(new.packages)
 
 library(devtools)
 library(parallel)
+library(plyr)
 library(dplyr)
 library(tidyr)
 library(readr)
 library(data.table)
 library(mgcv)
+library(lubridate)
+library(lme4)
+library(MuMIn)
 
 source('chap1functions.R')
 
@@ -79,7 +84,7 @@ SpeciesList$CommonName <- plyr::mapvalues(SpeciesList$CommonName, from = "Spring
 # SpeciesList <- filter(SpeciesList, Present > 30)
 saveRDS(SpeciesList, file = "SpeciesList.rds")
 
-site_geo <- fread("../GIS/OHsites_reconciled.csv", header = TRUE)
+site_geo <- fread("C:/Users/Tyson/Desktop/Box Sync/Ohio/GIS/OHsites_reconciled.csv", header = TRUE)
 site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
 
 setwd("C:/Users/Tyson/REPO/Chap1-Bfly-Landuse-Climate/")
@@ -150,12 +155,19 @@ Issues:
 #Problem with "Spring/Summer Azure" name when writing file in directory
 SpeciesList <- readRDS("SpeciesList.rds")
 
-region <- data.table(read.csv("site_region.txt", header = TRUE))
-# region[, SiteID := gsub(" ", "", as.character(SiteID))]
+region <- data.table(read.csv("C:/Users/Tyson/Desktop/Box Sync/Ohio/data2012/site_region.txt", header = TRUE))
+region$SiteID <- formatC(as.numeric(as.character(region$SiteID)), width = 3, format = "d", flag = "0")
 
 
-species <- as.character(SpeciesList$CommonName)
-species <- species[20:53]
+# rerunning to include population zeros
+# these species worked last time
+allcounts_files <- list.files("RDSfiles", pattern = "allcounts")
+species <- unlist(strsplit(allcounts_files, "allcounts", fixed = TRUE))[seq(2,130,2)]
+species <- unlist(strsplit(species, "[.]"))[seq(1,129,2)]
+
+
+# species <- as.character(SpeciesList$CommonName)
+# species <- species[20:53]
 for (sp in species){
   counts <- readRDS(paste("RDSfiles/rawcounts", sp, ".rds", sep = ""))
   counts <- merge(counts, site_geo, by = "SiteID")
@@ -279,9 +291,9 @@ for (sp in species){
     group_by(Year, SiteID) %>%
     summarise(GAMTrpzInd = TrapezoidIndex(Ordinal, Total))
   
-  Pops <- merge(PopUKBMSTrpz, PopRawTrpz, by = c("Year", "SiteID"))
-  Pops <- merge(Pops, PopRawSum, by = c("Year", "SiteID"))
-  Pops <- merge(Pops, PopGAMTrpz, by = c("Year", "SiteID"))
+  Pops <- merge(PopUKBMSTrpz, PopRawTrpz, by = c("Year", "SiteID"), all = TRUE)
+  Pops <- merge(Pops, PopRawSum, by = c("Year", "SiteID"), all = TRUE)
+  Pops <- merge(Pops, PopGAMTrpz, by = c("Year", "SiteID"), all = TRUE)
   
   #Collated indices from UKBMS
   PopIndex <- Pops %>%
@@ -343,6 +355,1786 @@ for (sp in species){
   saveRDS(RegIndex, file = paste("RDSfiles/popindex", sp, ".rds", sep = ""))
   
   }
+
+```
+
+NOTE: SOMETHING ABOUT GAM-only POP INDEX is way off.
+Only one growth rate estimated for each year. Do not use!!!
+
+
+
+Next, get the climate and landuse features sorted out.
+
+Weather:
+Just do butterfly sites, not the 1000 random points.
+3-month aggregation, quick pca/correlation plot to compare means vs extremes vs el nino/nao
+Site-specific anomalies vs all years/sites together for PCA.
+Seasonal means/precip vs. PCA by site/year to account for correlation between seasons.
+
+```{r weather features}
+
+
+
+library(data.table)
+library(lubridate)
+library(climdex.pcic)
+library(reshape)
+library(dplyr)
+
+
+site_geo <- fread("C:/Users/Tyson/Desktop/Box Sync/Ohio/GIS/OHsites_reconciled.csv", header = TRUE)
+site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+setwd("C:/Users/Tyson/Desktop/Box Sync/Ohio/daymet")
+source("revised.climdex.functions.R")
+
+
+#prepare ENSO and NAO to merge with data by season
+enso <- read.csv("enso.csv", header = TRUE)
+ENSO_clean <- CleanENSO(enso)
+nao <- read.delim("monthlyNAO.txt", header = FALSE, sep = "")
+NAO_clean <- CleanNAO(nao)
+# 
+# 
+# Daymet4PCA <- function(datafile){
+#   source("revised.climdex.functions.R")
+# 
+#   daymet.file <- paste("sites", datafile, sep = "/")
+#   
+#   all_content = readLines(daymet.file)
+#   skip_lead = all_content[-c(1:6)]
+#   data = read.csv(textConnection(skip_lead), header = TRUE, stringsAsFactors = FALSE)
+#   
+#   data$date <- strptime(paste(data$year, data$yday, sep = " "), format = "%Y %j")
+#   data$date <- MoveLeapYears(data$date)
+#   data$month <- month(data$date)
+#   
+#   site <- unlist(strsplit(datafile, "[.]"))[1]
+#   site <- unlist(strsplit(site, "e"))[2]
+#   data$site <- site
+#   data$season <- AddSeasons(data$date)
+#   
+#   names(data)[3] <- "tmax"
+#   names(data)[4] <- "tmin"
+#   names(data)[6] <- "prcp"
+#   names(data)[8] <- "snow"
+#   
+#   data <- data[, c("year", "yday", "tmax", "tmin", "prcp", "snow", "date", "month", "site", "season")]
+#   
+#   clim.input <- climdexInput.Tyson(tmax = data$tmax, tmin = data$tmin, prec = data$prcp,
+#                                    tmax.dates = as.PCICt(data$date, "365"), 
+#                                    tmin.dates = as.PCICt(data$date, "365"), 
+#                                    prec.dates = as.PCICt(data$date, "365"), 
+#                                    base.range = c(1980, 2014), n = 5 , northern.hemisphere = TRUE, 
+#                                    temp.qtiles = c(.1, .9))
+#   
+#   #season functions that work
+#   meanTemp <- temp.mean(clim.input)
+#   dailyTempRange <- season.dtr(clim.input, "season")
+#   summerDays <- season.su(clim.input) #tmax > 25
+#   summerDays30 <- season.su30(clim.input) #tmax > 30
+#   frostDays <- season.fd(clim.input) #tmin < 0
+#   icingDays <- season.id(clim.input) #tmax < 0
+#   tropNights <- season.tr(clim.input) #tmin > 20
+#   totPrecip <- season.prcptot(clim.input) #sum precip >= 1mm
+#   lowMinTemp <- season.tn10p(clim.input, "season") #percent of daily minimum temp below 10th percentile
+#   highMinTemp <- season.tn90p(clim.input, "season") #percent of daily minimum temp above 90th percentile
+#   lowMaxTemp <- season.tx10p(clim.input, "season") #percent of daily maximum temp below 10th percentile
+#   highMaxTemp <- season.tx90p(clim.input, "season") #percent of daily maximum temp above 90th percentile
+#   warmSpell <- season.wsdi(clim.input, 5, TRUE) #warm spells, consecutive days with tmax > 90th percentile
+#   coldSpell <- season.csdi(clim.input, 5, TRUE) #cold spells, consecutive days with tmin < 10th percentile
+#   minTmin <- season.tnn(clim.input, "season")
+#   maxTmin <- season.tnx(clim.input, "season")
+#   minTmax <- season.txn(clim.input, "season")
+#   maxTmax <- season.txx(clim.input, "season")
+#   drySpell <- season.cdd(clim.input)
+#   wetSpell <- season.cwd(clim.input)
+#   
+#   snowDays <- SeasonSnowDays(data)
+#   snowSpell <- SeasonSnowSpell(data)
+#   
+#   tempFluctDaily <- temp.daily.swing(clim.input, 1)
+#   tempFluctWeekly <- temp.daily.swing(clim.input, 7)
+#   tempSD <- temp.sd.trend(clim.input)
+#   
+#   out <- data.frame(site = site, season = rownames(meanTemp), meanTemp, dailyTempRange, summerDays, summerDays30, frostDays, icingDays,
+#                     tropNights, totPrecip, lowMinTemp, lowMaxTemp, highMinTemp, highMaxTemp,
+#                     warmSpell, coldSpell, minTmin, minTmax, maxTmin, maxTmax, drySpell, wetSpell,
+#                     snowDays, snowSpell, tempFluctDaily, tempFluctWeekly, tempSD)
+#   return(out)
+# }
+# 
+# 
+# #run lapply on all daymet files with function, then rbindlist
+# filenames <- as.list(list.files("sites"))
+# 
+# library(parallel)
+# 
+# # Calculate the number of cores
+# no_cores <- detectCores()-1
+#  
+# # Initiate cluster
+# cl <- makeCluster(no_cores)
+# clusterEvalQ(cl, {library(lubridate); library(climdex.pcic); library(reshape); library(dplyr)})
+# datList <- parLapply(cl, filenames, Daymet4PCA)
+# stopCluster(cl)
+# 
+# dat <- rbindlist(datList)
+# 
+# # datList <- lapply(filenames, Daymet4PCA)
+# saveRDS(dat, file = "bflysiteDaymet.RDS")
+
+vars <- readRDS("C:/Users/Tyson/Desktop/Box Sync/Ohio/daymet/bflysiteDaymet.rds")
+vars[, c("year", "month3") := tstrsplit(as.character(season), "-", fixed = TRUE)][]
+
+# add ENSO and NAO
+vars <- merge(vars, ENSO_clean[, -1], by = "season", all.x = TRUE, all.y = FALSE)
+vars <- merge(vars, NAO_clean[, -1], by = "season", all.x = TRUE, all.y = FALSE)
+
+# for each year and site
+# select appropriate seasons for current summer and previous 4 seasons
+years <- c(1995:2014)
+weather <- list()
+
+for (i in 1:length(years)){
+  yr <- years[i]
+  prevspr <- vars[year == (yr - 1)][month3 == "MAM"]
+  prevspr <- prevspr[, c(3:5,7,10:27, 30, 31), with = FALSE]
+  colnames(prevspr) <- paste("prevspr", colnames(prevspr), sep = "_")
+  
+  prevsum <- vars[year == (yr-1)][month3 == "JJA"]
+  prevsum <- prevsum[, c(3:6,9,10:22,25:27, 30, 31), with = FALSE]
+  colnames(prevsum) <- paste("prevsum", colnames(prevsum), sep = "_")
+  
+  fall <- vars[year == (yr-1)][month3 == "SON"]
+  fall <- fall[, c(3:7,10:22,25:27, 30, 31), with = FALSE]
+  colnames(fall) <- paste("fall", colnames(fall), sep = "_")
+  
+  winter <- vars[year == (yr-1)][month3 == "DJF"]
+  winter <- winter[, c(3,4,7,8,10:27, 30, 31), with = FALSE]
+  colnames(winter) <- paste("winter", colnames(winter), sep = "_")
+  
+  spring <- vars[year == yr][month3 == "MAM"]
+  spring <- spring[, c(3:5,7,10:27, 30, 31), with = FALSE]
+  colnames(spring) <- paste("spring", colnames(spring), sep = "_")
+  
+  currsum <- vars[year == yr][month3 == "JJA"]
+  currsum <- currsum[, c(3:6,9,10:22,25:27, 30, 31), with = FALSE]
+  colnames(currsum) <- paste("currsum", colnames(currsum), sep = "_")
+  
+  out <- cbind(prevspr, prevsum, fall, winter, spring, currsum)
+  out$year <- yr
+  out$site <- unique(vars$site)
+  weather[[i]] <- out
+}
+
+# boatload of weather variables for each season, 
+# so, pairs plot to see highest correlations
+# PCA to reduce further (between seasons? or also within seasons?)
+allyrweather <- rbindlist(weather)
+saveRDS(allyrweather, file = "siteweathervars.RDS")
+saveRDS(allyrweather, file = "C:/Users/Tyson/REPO/Chap1-Bfly-Landuse-Climate/data/siteweathervars.RDS")
+# 
+#correlation matrix!
+panel.cor <- function(x, y, digits = 2, cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  # correlation coefficient
+  r <- cor(x, y)
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste("r= ", txt, sep = "")
+  text(0.5, 0.6, txt)
+
+  # p-value calculation
+  p <- cor.test(x, y)$p.value
+  txt2 <- format(c(p, 0.123456789), digits = digits)[1]
+  txt2 <- paste("p= ", txt2, sep = "")
+  if(p<0.01) txt2 <- paste("p= ", "<0.01", sep = "")
+  text(0.5, 0.4, txt2)
+}
+
+
+vars <- allyrweather[, grep("currsum", names(allyrweather)), with = FALSE]
+
+pairs(vars, upper.panel = panel.cor)
+
+# basically, lesson from pairs plots is that mean temperature correlates with everything temperature
+# fluctuations their own thing, but not sure if they matter
+# precip it's own thing
+
+pc <- prcomp(vars[, c("currsum_dailyTempRange", "currsum_tempSD", "currsum_drySpell", 
+                         "currsum_wetSpell", "currsum_totPrecip", "currsum_tempFluctWeekly",
+                         "currsum_tempFluctDaily"), with = FALSE], scale. = TRUE)
+
+pc <- prcomp(vars[, grep("mean|Max|Min|warm|cold", names(vars)), with = FALSE], scale. = TRUE)
+pairs(vars[, grep("mean|Max|Min|warm|cold", names(vars)), with = FALSE], upper.panel = panel.cor)
+
+
+
+pc_weather <- allyrweather[ ,`:=`(year = NULL, site = NULL)]
+
+
+
+
+pc_temp <- pc_weather[, grep("meanTemp", names(pc_weather)), with = FALSE]
+pc_temp_precip <- pc_weather[, grep("meanTemp|totPrecip", names(pc_weather)), with = FALSE]
+
+pc <- prcomp(pc_temp, scale. = TRUE)
+pc <- prcomp(pc_temp_precip, scale. = TRUE)
+
+
+pc_out <- cbind(pc_temp, pc$x, allyrweather[, list(year, site)])
+# merge coordinates of random points
+DaymetCoords <- function(datafile){
+  daymet.file <- paste("randomPts", datafile, sep = "/")
+  content = readLines(daymet.file)[1]
+  lat <- as.numeric(unlist(strsplit(content, " "))[2])
+  lon <- as.numeric(unlist(strsplit(content, " "))[5])
+  site <- unlist(strsplit(datafile, "[.]"))[1]
+  site <- unlist(strsplit(site, "e"))[2]
+  out <- data.frame(site, lat, lon)
+  return(out)
+}
+
+
+#run lapply on all daymet files with function, then rbindlist
+filenames <- as.list(list.files("randomPts"))
+PtCoords <- lapply(filenames, DaymetCoords)
+ptcoords <- rbindlist(PtCoords)
+
+pca_coord <- merge(ptcoords, pc_out, by = "site")
+
+library(ggplot2)
+library(ggmap)
+
+OHmap <- qmap(location = "Centerburg, OH", zoom = 7)
+
+pca_plot_site <- pca_coord %>%
+  group_by(site, lat, lon) %>%
+  summarise(mean_pc1 = mean(PC1),
+            mean_pc2 = mean(PC2),
+            mean_pc3 = mean(PC3),
+            mean_pc4 = mean(PC4),
+            mean_pc5 = mean(PC5))
+
+
+OHmap + geom_point(data = pca_plot_site, aes(x = lon, y = lat, colour = mean_pc3), size = 5) + scale_color_gradient()
+
+
+
+# what about a pca on the site-level anomalies?
+# then include site mean in the lmer model as a covariate of varying slopes
+
+temp_precip <- allyrweather[, grep("meanTemp|totPrecip|year|site|meanENSO|meanNAO", names(allyrweather)), with = FALSE]
+temp_precip <- allyrweather[, grep("year|site|meanENSO|meanNAO", names(allyrweather)), with = FALSE]
+
+
+anomalies <- temp_precip %>%
+  group_by(site) %>%
+  mutate(
+        prevspr_anomTemp = scale(prevspr_meanTemp),
+         prevspr_anomPrecip = scale(prevspr_totPrecip),
+        prevsum_anomTemp = scale(prevsum_meanTemp),
+         prevsum_anomPrecip = scale(prevsum_totPrecip),
+         fall_anomTemp = scale(fall_meanTemp),
+         fall_anomPrecip = scale(fall_totPrecip),
+         winter_anomTemp = scale(winter_meanTemp),
+         winter_anomPrecip = scale(winter_totPrecip),
+         spring_anomTemp = scale(spring_meanTemp),
+         spring_anomPrecip = scale(spring_totPrecip),
+         currsum_anomTemp = scale(currsum_meanTemp),
+         currsum_anomPrecip = scale(currsum_totPrecip))
+anomalies <- anomalies[, grep("anom|year|site", names(anomalies)), with = FALSE]
+anomalies <- anomalies[, grep("Temp|year|site", names(anomalies)), with = FALSE]
+
+pc_anom <- anomalies[, `:=`(year = NULL, site = NULL)]
+
+pairs(anomalies[, `:=`(year = NULL, site = NULL)], upper.panel = panel.cor)
+
+anom_pca <- prcomp(pc_anom)
+
+
+# combine allyrweather with ENSO and NAO, then do PCA
+
+pc_anom_circ <- temp_precip[ ,`:=`(year = NULL, site = NULL)]
+
+test <- prcomp(pc_anom_circ, scale. = TRUE)
+
+
+```
+
+
+Landuse:
+PCA rather than NMDS for consistency.
+Ignore fragmentation/impervious now.
+Quantify % change so that it can be ignored.
+
+See package rgr for compositional data, use clr for transformation before PCA.
+
+```{r landuse features}
+lulc <- fread("C:/Users/Tyson/REPO/NCEAS-RENCI_2014/Landcover/LC_bflybuff_overtime.csv", header = TRUE)
+lulc[, SiteID := formatC(as.numeric(as.character(site)), width = 3, format = "d", flag = "0")]
+
+# 
+# 
+# luchange <- lulc %>%
+#   filter(buffer == 5000) %>%
+#   filter(YEAR > 2000) %>%
+#   group_by(SiteID, reclass) %>%
+#   summarise(PixChange = (total_pix[1] - total_pix[length(total_pix)]))
+
+#convert reclass to vegtype
+reclass_table <- data.frame("reclass" = as.character(0:7), "land_cover" = c("nodata", "water", "developed", "barren", "forest", "grassland_shrub", "agriculture", "wetlands"))
+
+#merge conversion table with landcover
+landuse <- merge(lulc, reclass_table, by = "reclass")
+
+# remove water and barren landclasses
+land_edit <- landuse %>%
+  filter(-which(land_cover %in% c("barren", "water")))
+
+landuse_pca <- land_edit %>% 
+  filter(YEAR == 2011) %>% 
+  filter(buffer == 5000) %>%
+  dplyr::select(SiteID, km2, land_cover) %>% 
+  spread(land_cover, km2) %>%
+  ungroup() %>% group_by(SiteID) %>% 
+  mutate(rowtotal = agriculture + developed + forest+ grassland_shrub + wetlands) %>%
+  mutate(agriculture_prop = agriculture/rowtotal, 
+         developed_prop = developed/rowtotal, 
+         forest_prop = forest/rowtotal, 
+         grassland_shrub_prop = grassland_shrub/rowtotal,
+         wetlands_prop = wetlands/rowtotal) %>% ungroup() 
+
+# use compositional data transformation
+library(rgr)
+library(vegan)
+
+comp_pca <- clr(as.matrix(landuse_pca[,2:6, with = FALSE] + 1))
+mod <- prcomp(comp_pca) # rda or prcomp works too
+
+# plot contours of landuse proportion on pca results
+mod.sf <- ordisurf(mod ~ agriculture_prop, data = landuse_pca, plot = FALSE, scaling = 3)
+plot(mod.sf, col = "forestgreen")
+
+
+# mod 2 PCs explain 80% variation
+# PC1 is less ag/more developed as it gets larger
+# PC2 is less forest/grassland, more developed as it gets larger
+lulc_pc <- data.frame(SiteID = landuse_pca$SiteID, PC1 = scores(mod)[,1], PC2 = scores(mod)[,2])
+saveRDS(lulc_pc, file = "C:/Users/Tyson/REPO/Chap1-Bfly-Landuse-Climate/data/landuse_pca.rds")
+```
+
+
+
+Notes: 
+-check on GAM estimates, might want to only use counts that met requirements to get GAM estimate
+LowRawCount is from sites not meeting regional GAM requirements
+UKBMS index from EstimGAM_missing + RawCount == TrpzInd in Pops
+All GAM estimate is GAMTrpzInd, no GAM interpolations is RawTrpzInd
+
+-split variables by site (landuse and mean temp) and year (weather variable anomalies, ENSO, NAO)
+-interactions between site vars and year vars to test climate x landuse
+-might be better to have space for time subsitution for weather, where raw weather variables (not anomalies) used
+-density dependence debate: lognt1 or site-scaled lognt1 or varying slopes by site (r correlation with intercept weird, though)
+-simulation study showed negative correlation between species varying r intercept and dens-dep varying slopes,
+opposite of positive correlation in last models of real data
+
+```{r bring in pops, weather, landuse}
+SpeciesList <- readRDS("SpeciesList.rds")
+
+# get the 65 species I have population estimates for
+allcounts_files <- list.files("RDSfiles", pattern = "allcounts")
+species <- unlist(strsplit(allcounts_files, "allcounts", fixed = TRUE))[seq(2,130,2)]
+species <- unlist(strsplit(species, "[.]"))[seq(1,129,2)]
+
+allcounts <- list()
+phen_all <- list()
+Pops <- list()
+RegIndex <- list()
+
+for (i in 1:length(species)){
+  sp <- species[i]
+  allcounts[[i]] <-  cbind(sp, readRDS(file = paste("RDSfiles/allcounts", sp, ".rds", sep = "")))
+  phen_all[[i]] <- cbind(sp, readRDS(file = paste("RDSfiles/phenology", sp, ".rds", sep = "")))
+  Pops[[i]] <- cbind(sp, readRDS(file = paste("RDSfiles/popsites", sp, ".rds", sep = "")))
+  RegIndex[[i]] <- cbind(sp, readRDS(file = paste("RDSfiles/popindex", sp, ".rds", sep = "")))
+}
+
+allspcounts <- rbindlist(allcounts)
+allspphen <- rbindlist(phen_all)
+allspindex <- rbindlist(Pops)
+allspregindex <- rbindlist(RegIndex)
+
+allyrweather <- readRDS("data/siteweathervars.RDS")
+weather <- allyrweather[, grep("meanTemp|totPrecip|year|site|meanENSO|meanNAO", names(allyrweather)), with = FALSE]
+weather[, SiteID := formatC(as.numeric(as.character(site)), width = 3, format = "d", flag = "0")]
+weather[, Year := as.character(year)]
+weather[, year := NULL]
+weather[, site := NULL]
+
+# pca of weather vars over all sites x years
+# not that useful, as geographic variation in all seasons temperature is largest component
+# also, correlated ENSO between seasons leads to its clustering in one PC
+
+pc_temp <- weather[, grep("meanTemp", names(weather)), with = FALSE]
+pc_temp_precip <- weather[, grep("meanTemp|totPrecip", names(weather)), with = FALSE]
+pc_temp_precip_circ <- weather[, grep("mean|totPrecip", names(weather)), with = FALSE]
+pc_temp_circ <- weather[, grep("mean", names(weather)), with = FALSE]
+
+pca_temp <- prcomp(pc_temp, scale. = TRUE)
+pca_temp_precip <- prcomp(pc_temp_precip, scale. = TRUE)
+pca_temp_precip_circ <- prcomp(pc_temp_precip_circ, scale. = TRUE)
+pca_temp_circ <- prcomp(pc_temp_circ, scale. = TRUE)
+
+
+
+
+# scale weather vars over all sites x years
+weathercols <- names(weather)[1:24]
+anomcols <- names(weather)[grep("meanTemp|totPrecip", names(weather))]
+
+weather[ , (paste("z", weathercols, sep = "_")) := as.data.table(scale(.SD)), .SDcols = weathercols]
+
+# scale weather vars by site-level anomalies
+weather[, (paste("siteanom", anomcols, sep = "_")) := as.data.table(scale(.SD)), .SDcols = anomcols, by = SiteID]
+
+# mean site conditions
+sitecols <- paste("z", anomcols, sep = "_")
+weather[, (paste("sitemean", sitecols, sep = "_")) := lapply(.SD, mean), .SDcols = sitecols, by = SiteID]
+
+# orthogonal squared weather over all sites x years
+sqpoly <- function(x){
+  temp <- poly(x, degree = 2)
+  return(temp[,2])
+}
+
+weather[ , (paste("zsq", weathercols, sep = "_")) := lapply(.SD, sqpoly), .SDcols = weathercols]
+
+# pca of anomalies of sites
+# weather <- weather[, grep("siteanom|NAO|ENSO", names(weather)), with = FALSE]
+
+pc_temp <- weather[, grep("meanTemp", names(weather)), with = FALSE]
+pc_temp_precip <- weather[, grep("meanTemp|totPrecip", names(weather)), with = FALSE]
+pc_temp_precip_circ <- weather[, grep("mean|totPrecip", names(weather)), with = FALSE]
+pc_temp_circ <- weather[, grep("mean", names(weather)), with = FALSE]
+pc_anom <- pc_temp[, grep("anom", names(pc_temp)), with = FALSE]
+
+pca_temp <- prcomp(pc_temp, scale. = TRUE)
+pca_temp_precip <- prcomp(pc_temp_precip, scale. = TRUE)
+pca_temp_precip_circ <- prcomp(pc_temp_precip_circ, scale. = TRUE)
+pca_temp_circ <- prcomp(pc_temp_circ, scale. = TRUE)
+
+pca_anom <- prcomp(pc_anom, scale. = TRUE)
+
+
+
+
+
+# check that means make sense
+# site mean same for all rows, mean anomalies are 0, z scores mean not zero
+summary(weather[SiteID == "001"])
+
+allspindex$Year <- as.character(allspindex$Year)
+allspindex$SiteID <- as.character(allspindex$SiteID)
+
+lulc_pc <- readRDS("data/landuse_pca.rds")
+lulc_pc$SiteID <- as.character(lulc_pc$SiteID)
+
+dat <- merge(allspindex, weather, by = c("SiteID", "Year"))
+dat <- merge(dat, lulc_pc, by = "SiteID")
+
+saveRDS(dat, file = "modelingData.rds")
+
+```
+
+Make growth rate response variables and lagged density dependence.
+
+```{r response}
+library(lme4)
+
+dat <- readRDS("modelingData.rds")
+
+# add previous year lag for density dependence
+dat$Year <- as.numeric(dat$Year)
+dat$SpSiteID <- paste(dat$sp, dat$SiteID, sep = "_")
+
+# dumb switch between data.table and dplyr
+
+expanddat <- dplyr::select(dat, SpSiteID, Year, TrpzInd, RawTrpzInd, RawSum, GAMTrpzInd)
+
+expanddat <- expanddat %>%
+  tidyr::expand(SpSiteID, Year) %>%
+  dplyr::left_join(expanddat)
+
+newdat <- 
+    expanddat %>%
+    arrange(SpSiteID, Year) %>%
+    group_by(SpSiteID) %>%
+    mutate(lag.TrpzInd = lag(TrpzInd, 1),
+           lag.RawTrpzInd = lag(RawTrpzInd, 1),
+           lag.RawSum = lag(RawSum, 1),
+           lag.GAMTrpzInd = lag(GAMTrpzInd, 1))
+
+# get growth rates for response variables
+# for now, use log(n + 1) to deal with zeros
+# also, site scaled lag N will not worry about zeros (but not in growth rate response)
+# GAMTrpzInd will not have that issue, only has estimates for counts >= 3
+
+response <- newdat %>%
+  filter(RawSum > 0 & lag.RawSum > 0) %>%
+  mutate(growth_ukbms_add1 = log((TrpzInd + 1) / (lag.TrpzInd + 1)),
+         growth_ukbms_NAzero = log(TrpzInd/lag.TrpzInd),
+         growth_rawtrpz_add1 = log((RawTrpzInd + 1) / (lag.RawTrpzInd + 1)),
+         growth_rawtrpz_NAzero = log(RawTrpzInd/lag.RawTrpzInd),
+         growth_rawsum_add1 = log((RawSum + 1) / (lag.RawSum + 1)),
+         growth_rawsum_NAzero = log(RawSum/lag.RawSum),
+         growth_gam = log(GAMTrpzInd/lag.GAMTrpzInd))
+
+response <- data.table(response)
+invisible(lapply(names(response),function(.name) set(response, which(is.infinite(response[[.name]])), j = .name,value =NA)))
+
+# density dependence at the site (not just lag-1 abundance)
+response <- response %>%
+  group_by(SpSiteID) %>%
+  mutate(ddsite_ukbms = scale(lag.TrpzInd),
+         ddsite_rawtrpz = scale(lag.RawTrpzInd),
+         ddsite_rawsum = scale(lag.RawSum),
+         ddsite_gam = scale(lag.GAMTrpzInd))
+# problem with ddsite = 0 when not enough observations at a site to scale
+# assign these to zero, give no information if at mean of covariate
+invisible(lapply(names(response)[grep("ddsite", x = names(response))], function(.name) 
+  set(response, which(is.na(response[[.name]])), j = .name, value = 0)))
+
+datmod <- merge(response, dat, by = c("SpSiteID", "Year", "TrpzInd", "RawTrpzInd", "RawSum", "GAMTrpzInd"))
+
+
+
+```
+
+
+model that shit
+
+85 variables in datmod, many redundant.
+
+1st attempt:
+All 5 seasons linear and orthogonal squared temperature. 
+All varying slopes by species.
+Can't fit, try with allFit function to try all optimizers.
+For m2, weird random effects, squared terms especially large variance.
+Could be due to orthogonal or lack of convergence in fitting.
+Also, tried this with 65 species, some of which only had 20 observations. Filter these!!
+
+2nd attempt:
+Non-orthogonal quadratic effects of weather with 39 species.
+Bobyqa fits it OK, little RE correlation. 
+Great spangled fritillary has extreme random effects, possibly a bad sign for model fit.
+
+
+3rd:
+PCA of 5 seasons temperature variables to try and reduce ##?
+Or just reduce model random effects by doing single species models?
+
+
+```{r model}
+
+datmod$YearFact <- as.factor(datmod$Year)
+datmod <- datmod %>%
+  rowwise() %>%
+  dplyr::mutate(meantemp = mean(c(sitemean_z_fall_meanTemp,
+                        sitemean_z_winter_meanTemp,
+                        sitemean_z_spring_meanTemp,
+                        sitemean_z_prevsum_meanTemp))) 
+
+datmodcut <- datmod %>%
+  group_by(sp) %>%
+  dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
+  filter(numobs > 140)
+
+
+
+
+
+
+test.formula3 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    zsq_currsum_meanTemp + 
+                    zsq_spring_meanTemp + 
+                    zsq_winter_meanTemp + 
+                    zsq_fall_meanTemp +  
+                    zsq_prevsum_meanTemp + 
+                (1 + ddsite_ukbms +  z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    zsq_currsum_meanTemp + 
+                    zsq_spring_meanTemp + 
+                    zsq_winter_meanTemp + 
+                    zsq_fall_meanTemp +  
+                    zsq_prevsum_meanTemp| sp))
+
+
+
+form3 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_spring_meanTemp^2) + 
+                    I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2) + 
+                (1 + ddsite_ukbms +  z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                   I(z_currsum_meanTemp^2) + 
+                    I(z_spring_meanTemp^2) + 
+                    I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2)| sp))
+
+
+
+library(nloptr)
+defaultControl <- list(algorithm="NLOPT_LN_BOBYQA",xtol_rel=1e-6,maxeval=1e6)
+nloptwrap2 <- function(fn,par,lower,upper,control=list(),...) {
+    for (n in names(defaultControl)) 
+      if (is.null(control[[n]])) control[[n]] <- defaultControl[[n]]
+    res <- nloptr(x0=par,eval_f=fn,lb=lower,ub=upper,opts=control,...)
+    with(res,list(par=solution,
+                  fval=objective,
+                  feval=iterations,
+                  conv=if (status>0) 0 else status,
+                  message=message))
+}
+
+system.time(test.model <- lmer(test.formula, data=datmod,
+control=lmerControl(optimizer="nloptwrap2")))
+
+system.time(test.model2 <- lmer(test.formula2, data=datmod,
+control=lmerControl(optimizer="nloptwrap2")))
+
+
+system.time(model3 <- lmer(form3, data=datmodcut,
+control=lmerControl(optimizer="nloptwrap2")))
+
+
+mod <- readRDS("lmerModallseasons.RDS")
+ss <- getME(mod,c("theta","fixef"))
+m2 <- update(mod,start=ss,control=lmerControl(optimizer = "nloptwrap2"))
+ss2 <- getME(mod,c("theta","fixef"))
+m3 <- update(m2,start=ss2,control=lmerControl(optimizer = "nloptwrap2"))
+
+source('optimizers.R')
+  mods <- allFit(lmer(form3, data = datmodcut), 
+                 meth.tab = cbind(optimizer=
+                                         rep(c("bobyqa","Nelder_Mead", "optimx",  "nloptWrap"),
+                                             c(    1,         1,           2,         2)),
+                                       method= c("",        "",  "nlminb","L-BFGS-B",
+                                                 "NLOPT_LN_NELDERMEAD", "NLOPT_LN_BOBYQA")),
+                   verbose=TRUE,
+                   
+                   maxfun=2e5)
+
+  aa <- mods
+  is.OK <- sapply(aa,is,"merMod")  ## nlopt NELDERMEAD failed, others succeeded
+aa.OK <- aa[is.OK]
+lapply(aa.OK,function(x) x@optinfo$conv$lme4$messages)
+  (lliks <- sort(sapply(aa.OK,logLik)))
+  
+aa.fixef <- t(sapply(aa.OK,fixef))
+aa.fixef.m <- melt(aa.fixef)
+models <- levels(aa.fixef.m$Var1)
+ylabs <- substr(models,1,3)
+aa.fixef.m <- transform(aa.fixef.m,Var1=factor(Var1,levels=names(lliks)))
+(gplot1 <- ggplot(aa.fixef.m,aes(x=value,y=Var1,colour=Var1))+geom_point()+
+     facet_wrap(~Var2,scale="free")+
+         scale_colour_brewer(palette="Dark2")+
+             scale_y_discrete(breaks=models,
+                              labels=ylabs)+
+                                  labs(x="",y=""))
+
+saveRDS(mods, "allfitlmerallseasons.RDS")
+
+mods <- readRDS("allfitlmerallseasons.RDS")
+
+
+
+# single species model
+datsp <- datmod %>% filter(sp == "Spicebush Swallowtail")
+
+
+form.sp <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_spring_meanTemp^2) + 
+                    I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2) 
+                )
+
+spmod <- lm(form.sp, data = datsp)
+
+
+form.sp1 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_spring_meanTemp^2) + 
+                    I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2) + 
+                      (1|SiteID))
+
+form.sp2 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp + 
+                    I(siteanom_currsum_meanTemp^2) + 
+                    I(siteanom_spring_meanTemp^2) + 
+                    I(siteanom_winter_meanTemp^2) + 
+                    I(siteanom_fall_meanTemp^2) +  
+                    I(siteanom_prevsum_meanTemp^2) + 
+                      (1|SiteID))
+
+
+form.sp1 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_prevsum_meanTemp + 
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_prevsum_meanTemp^2) + 
+                      (1|SiteID))
+
+form.sp2 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_prevsum_meanTemp + 
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_prevsum_meanTemp^2) )
+
+
+form.sp3 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    siteanom_currsum_meanTemp + 
+                    siteanom_prevsum_meanTemp + 
+                    I(siteanom_currsum_meanTemp^2) + 
+                    I(siteanom_prevsum_meanTemp^2) + 
+                    sitemean_z_currsum_meanTemp + 
+                    sitemean_z_prevsum_meanTemp + 
+                    I(sitemean_z_currsum_meanTemp^2) + 
+                    I(sitemean_z_prevsum_meanTemp^2) )
+
+form.sp4 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    siteanom_currsum_meanTemp + 
+                    siteanom_prevsum_meanTemp + 
+                    I(siteanom_currsum_meanTemp^2) + 
+                    I(siteanom_prevsum_meanTemp^2) )
+
+form.sp5 <- as.formula(growth_ukbms_add1 ~ 
+                                ddsite_ukbms +  
+                    siteanom_currsum_meanTemp*sitemean_z_currsum_meanTemp + 
+                    siteanom_prevsum_meanTemp*sitemean_z_prevsum_meanTemp  + 
+                    I(siteanom_currsum_meanTemp^2) + 
+                    I(siteanom_prevsum_meanTemp^2) )
+
+form.sp6 <- as.formula(growth_ukbms_add1 ~ 
+                      ddsite_ukbms +  
+                      meantemp +
+                      siteanom_currsum_meanTemp +
+                      siteanom_currsum_meanTemp : meantemp  +
+                      siteanom_prevsum_meanTemp +
+                      siteanom_prevsum_meanTemp : meantemp  
+                      )
+form.sp6re <- as.formula(growth_ukbms_add1 ~ 
+                      ddsite_ukbms +  
+                      meantemp +
+                      siteanom_currsum_meanTemp +
+                      siteanom_currsum_meanTemp : meantemp  +
+                      siteanom_prevsum_meanTemp +
+                      siteanom_prevsum_meanTemp : meantemp  +
+                        (1|YearFact)
+                      )
+
+                     
+   
+                     
+      form.sp7 <- as.formula(growth_ukbms_add1 ~ 
+                      ddsite_ukbms +  
+                      meantemp +
+                      siteanom_currsum_meanTemp +
+                      siteanom_currsum_meanTemp : meantemp  +
+                      siteanom_prevsum_meanTemp +
+                      siteanom_prevsum_meanTemp : meantemp +
+                      I(siteanom_currsum_meanTemp^2) +
+                      I(siteanom_currsum_meanTemp^2) : meantemp  +
+                      I(siteanom_prevsum_meanTemp^2) +
+                      I(siteanom_prevsum_meanTemp^2) : meantemp +
+                      siteanom_spring_meanTemp +
+                      siteanom_spring_meanTemp : meantemp +
+                      I(siteanom_spring_meanTemp^2) +
+                      I(siteanom_spring_meanTemp^2) : meantemp+
+                      siteanom_winter_meanTemp +
+                      siteanom_winter_meanTemp : meantemp +
+                      I(siteanom_winter_meanTemp^2) +
+                      I(siteanom_winter_meanTemp^2) : meantemp +
+                        siteanom_fall_meanTemp +
+                      siteanom_fall_meanTemp : meantemp +
+                      I(siteanom_fall_meanTemp^2) +
+                      I(siteanom_fall_meanTemp^2) : meantemp 
+                      )                  
+           
+  
+
+
+
+mod1 <- lmer(form.sp1, data = datsp)
+mod2 <- lm(form.sp2, data = datsp)
+mod3 <- lm(form.sp3, data = datsp)
+mod4 <- lm(form.sp4, data = datsp)
+mod5 <- lm(form.sp5, data = datsp)
+mod6 <- lm(form.sp6, data = datsp)
+mod6re <- lmer(form.sp6re, data = datsp)
+mod7 <- lm(form.sp7, data = datsp)
+
+library(tree)
+tree.form <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp  
+                   )
+tree.mod <- tree(tree.form, datsp)
+
+tree.form.anom <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp  
+                   )
+tree.mod.anom <- tree(tree.form.anom, datsp)
+
+library(mgcv)
+gam.mod <- gam(growth_ukbms_add1 ~ 
+                    s(ddsite_ukbms) +  
+                    s(z_currsum_meanTemp) + 
+                    s(z_spring_meanTemp) + 
+                    s(z_winter_meanTemp) + 
+                    s(z_fall_meanTemp) +  
+                    s(z_prevsum_meanTemp), data = datsp)
+
+
+gam.mod.anom <- gam(growth_ukbms_add1 ~ 
+                    s(ddsite_ukbms) +  
+                    s(siteanom_currsum_meanTemp) + 
+                    s(siteanom_spring_meanTemp) + 
+                    s(siteanom_winter_meanTemp) + 
+                    s(siteanom_fall_meanTemp) +  
+                    s(siteanom_prevsum_meanTemp), data = datsp)
+
+
+saturated <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms +  
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_spring_meanTemp^2) + 
+                    I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2) +
+                      meantemp)
+
+mod <- lm(form.sp7, datsp)
+stmod <- step(mod)
+options(na.action = "na.fail")   #  prevent fitting models to different datasets
+drmod <- dredge(mod, beta = "none", fixed = "ddsite_ukbms", m.lim = c(2, 5))
+
+library(caret)
+
+ctrl <- rfeControl(functions = lmFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+subsets <- c(1:10)
+x <- datsp %>%
+  dplyr::select(c(18, 43 +grep("Temp|totPrecip", names(datsp)[44:63])))
+y <- datsp$growth_ukbms_add1
+
+lmProfile <- rfe(x, y,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+
+lmProfile
+```
+
+Odd feature of model:
+Single-species models give different variables that are most important.
+Also, when random effect for year included, important variables change.
+Does not inspire much confidence.
+Possibly try the anomalies x site mean conditions as a way.
+Perhaps treating temperature as global effect without regard to context not good.
+
+
+
+
+Use spatial leave one out.
+Will select fewer variables than AIC or LOO.
+Use this fact to narrow down models.
+Use step to backwards selection down to manageable # of parameters, then
+use SLOO to reduce further based on spatial grain (also leave out year of observation)
+
+
+
+```{r model selection}
+
+datmod$YearFact <- as.factor(datmod$Year)
+datmod <- datmod %>%
+  rowwise() %>%
+  dplyr::mutate(meantemp = mean(c(sitemean_z_fall_meanTemp,
+                        sitemean_z_winter_meanTemp,
+                        sitemean_z_spring_meanTemp,
+                        sitemean_z_prevsum_meanTemp))) 
+
+datmodcut <- datmod %>%
+  group_by(sp) %>%
+  dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
+  filter(numobs > 140)
+
+
+
+spec <- "Spicebush Swallowtail"
+
+datsp <- datmodcut %>% filter(sp == spec) 
+
+# plot temperature variables vs growth rate correlation
+pairs(datsp[ , c("z_currsum_meanTemp", 
+                   "z_spring_meanTemp", 
+                   "z_winter_meanTemp",  
+                   "z_fall_meanTemp",  
+                   "z_prevsum_meanTemp", "growth_ukbms_add1")], panel = panel.smooth)
+
+pairs(datsp[ , c("siteanom_currsum_meanTemp", 
+                   "siteanom_spring_meanTemp", 
+                   "siteanom_winter_meanTemp",  
+                   "siteanom_fall_meanTemp",  
+                   "siteanom_prevsum_meanTemp", "growth_ukbms_add1")], panel = panel.smooth)
+
+library(ggplot2)
+a <- ggplot(data = datsp, aes(x = jitter(Year), y = growth_ukbms_add1, group = meantemp, color = meantemp)) + 
+  geom_point(size = 5) + theme_bw() + scale_color_continuous(low = "blue", high = "red")
+a
+
+# 
+# %>%
+#   dplyr::select(growth_ukbms_add1, ddsite_ukbms, siteanom_prevsum_meanTemp, siteanom_prevsum_totPrecip,
+#          siteanom_fall_meanTemp, siteanom_fall_totPrecip, siteanom_winter_meanTemp,
+#          siteanom_winter_totPrecip, siteanom_spring_meanTemp, siteanom_spring_totPrecip,
+#          siteanom_currsum_meanTemp, siteanom_currsum_totPrecip, YearFact, meantemp, PC1, PC2, numobs)
+clim.form000a <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp + 
+                    z_prevspr_meanTemp)
+
+clim.form000b <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp)
+
+clim.form00a <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp +
+                    I(z_currsum_meanTemp^2) + 
+                    I(z_spring_meanTemp^2) + 
+                    I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2))
+
+clim.form00b <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp + 
+                    I(siteanom_currsum_meanTemp^2) + 
+                    I(siteanom_spring_meanTemp^2) + 
+                    I(siteanom_winter_meanTemp^2) + 
+                    I(siteanom_fall_meanTemp^2) +  
+                    I(siteanom_prevsum_meanTemp^2))
+                    
+clim.form0 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp +
+                    meantemp +
+                    meantemp:z_currsum_meanTemp + 
+                    meantemp:z_spring_meanTemp + 
+                    meantemp:z_winter_meanTemp + 
+                    meantemp:z_fall_meanTemp +  
+                    meantemp:z_prevsum_meanTemp)
+
+clim.form1 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp +
+                    meantemp +
+                    meantemp:siteanom_currsum_meanTemp + 
+                    meantemp:siteanom_spring_meanTemp + 
+                    meantemp:siteanom_winter_meanTemp + 
+                    meantemp:siteanom_fall_meanTemp +  
+                    meantemp:siteanom_prevsum_meanTemp)
+
+clim.form2 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp +
+                      I(z_currsum_meanTemp^2) + 
+                   I(z_spring_meanTemp^2) + 
+                   I(z_winter_meanTemp^2) + 
+                    I(z_fall_meanTemp^2) +  
+                    I(z_prevsum_meanTemp^2) +
+                    meantemp +
+                    meantemp:z_currsum_meanTemp + 
+                    meantemp:z_spring_meanTemp + 
+                    meantemp:z_winter_meanTemp + 
+                    meantemp:z_fall_meanTemp +  
+                    meantemp:z_prevsum_meanTemp +
+                    meantemp:I(z_currsum_meanTemp^2) + 
+                    meantemp:I(z_spring_meanTemp^2) + 
+                    meantemp:I(z_winter_meanTemp^2) + 
+                    meantemp:I(z_fall_meanTemp^2) +  
+                    meantemp:I(z_prevsum_meanTemp^2))
+
+
+clim.form3 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp +
+                    I(siteanom_currsum_meanTemp^2) + 
+                    I(siteanom_spring_meanTemp^2) + 
+                    I(siteanom_winter_meanTemp^2) + 
+                    I(siteanom_fall_meanTemp^2) +  
+                    I(siteanom_prevsum_meanTemp^2) +
+                    meantemp +
+                    meantemp:siteanom_currsum_meanTemp + 
+                    meantemp:siteanom_spring_meanTemp + 
+                    meantemp:siteanom_winter_meanTemp + 
+                    meantemp:siteanom_fall_meanTemp +  
+                    meantemp:siteanom_prevsum_meanTemp +
+                      meantemp:I(siteanom_currsum_meanTemp^2) + 
+                    meantemp:I(siteanom_spring_meanTemp^2) + 
+                    meantemp:I(siteanom_winter_meanTemp^2) + 
+                    meantemp:I(siteanom_fall_meanTemp^2) +  
+                    meantemp:I(siteanom_prevsum_meanTemp^2))
+
+mod00a <- lm(clim.form00a, datsp)
+mod00b <- lm(clim.form00b, datsp)
+mod000a <- lm(clim.form000a, datsp)
+mod000b <- lm(clim.form000b, datsp)
+
+mod0 <- lm(clim.form0, datsp)
+mod1 <- lm(clim.form1, datsp)
+mod2 <- lm(clim.form2, datsp)
+mod3 <- lm(clim.form3, datsp)
+
+stmod00a <- step(mod00a)
+stmod00b <- step(mod00b)
+stmod000a <- step(mod000a)
+stmod000b <- step(mod000b)
+stmod0 <- step(mod0)
+stmod1 <- step(mod1)
+stmod2 <- step(mod2)
+stmod3 <- step(mod3)
+
+
+AIC(mod000a, mod000b, mod00a, mod00b, mod0, mod1, mod2, mod3)
+AIC(stmod000a, stmod000b, stmod00a, stmod00b, stmod0, stmod1, stmod2, stmod3)
+model.sel(mod000a, mod000b, mod00a, mod00b, mod0, mod1, mod2, mod3) # mod1 clear winner here
+model.sel(stmod000a, stmod000b, stmod00a, stmod00b, stmod0, stmod1, stmod2, stmod3) #stmod3 wins
+
+
+options(na.action = "na.fail")   #  prevent fitting models to different datasets
+
+drmod0 <- dredge(mod0, evaluate = TRUE, m.lim = c(1, 6))
+drmod1 <- dredge(mod1, evaluate = TRUE, m.lim = c(1, 6))
+drmod2 <- dredge(mod2, evaluate = TRUE, m.lim = c(1, 6))
+drmod3 <- dredge(mod3, evaluate = TRUE, m.lim = c(1, 6))
+
+model.sel(get.models(drmod3, delta < 4))
+model.sel(get.models(drmod0, subset = 1)[[1]], get.models(drmod1, subset = 1)[[1]],
+          get.models(drmod2, subset = 1)[[1]], get.models(drmod3, subset = 1)[[1]])
+
+# step and dredge results
+summary(stmod0)
+summary(get.models(drmod0, subset = 1)[[1]])
+
+summary(stmod1)
+summary(get.models(drmod1, subset = 1)[[1]])
+
+summary(stmod2)
+summary(get.models(drmod2, subset = 1)[[1]])
+
+summary(stmod3)
+summary(get.models(drmod3, subset = 1)[[1]])
+# plot interactions
+
+sjp.int(stmod2, type = "eff", int.term = "z_fall_meanTemp")  
+sjp.lm(stmod2, type = "poly", poly.term = "z_spring_meanTemp")
+
+
+
+# weird currsum/prevsum contradiction
+# what if only use every other year?
+
+clim.form0 <- as.formula(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    scale(Year) +
+                    I(ddsite_ukbms^2) +
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp +
+                    meantemp +
+                    meantemp:z_currsum_meanTemp + 
+                    meantemp:z_spring_meanTemp + 
+                    meantemp:z_winter_meanTemp + 
+                    meantemp:z_fall_meanTemp +  
+                    meantemp:z_prevsum_meanTemp)
+
+
+mod.even <- lm(clim.form0, data = datsp[which(datsp$Year %% 2 == 0), ])
+
+mod.odd <- lm(clim.form0, data = datsp[which(datsp$Year %% 2 == 1), ])
+
+mod.all <- lm(clim.form0, data = datsp)
+stmod <- step(mod.all)
+
+mod.re <- lmer(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    scale(Year) +
+                    I(ddsite_ukbms^2) +
+                    z_currsum_meanTemp + 
+                    z_spring_meanTemp + 
+                    z_winter_meanTemp + 
+                    z_fall_meanTemp +  
+                    z_prevsum_meanTemp +
+                    meantemp +
+                    meantemp:z_currsum_meanTemp + 
+                    meantemp:z_spring_meanTemp + 
+                    meantemp:z_winter_meanTemp + 
+                    meantemp:z_fall_meanTemp +  
+                    meantemp:z_prevsum_meanTemp +
+               (1|YearFact), data = datsp)
+
+mod.null <- lm(growth_ukbms_add1 ~ 
+                    ddsite_ukbms + 
+                    I(ddsite_ukbms^2), data = datsp)
+
+# plot
+a <- ggplot(data = datsp, aes(x = year))
+
+
+
+```
+
+
+
+Right now, my inclination is use simple linear models (no random effects).
+1. Start with simple models and increase in complexity to climate x landuse.
+2. Spatiotemporal leave one out CV to select variables in models with backwards selection -> prediction as goal in this study. This leaves issue of scale in variogram for each species.
+3. Once top models selected, maybe then use hierarchical partitioning to give importance of climate vs landuse vs density dependence.
+4. Traits come in at the end.
+
+
+Still unresolved: PCA of climate anomalies or not. Maybe reduce 6 seasons to 3-4 PCs.
+1st PC is correlated with warm years for all seasons.
+
+
+```{r stloo}
+
+datmod$YearFact <- as.factor(datmod$Year)
+sitemeans <- readRDS("data/sitemeans.rds")
+
+datmod2 <- merge(datmod, sitemeans[, c("zmean", "SiteID"), with = FALSE], by = "SiteID")
+
+datmodcut <- datmod2 %>%
+  group_by(sp) %>%
+  dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
+  filter(numobs > 140)
+
+spec <- "Hackberry Emperor"
+
+datsp <- datmodcut %>% filter(sp == spec) 
+# 
+# mod.null1 <- lm(growth_ukbms_add1 ~ 
+#                     ddsite_ukbms + 
+#                     I(ddsite_ukbms^2), data = datsp)
+# mod.null2 <- lm(growth_ukbms_add1 ~ 
+#                     log(lag.TrpzInd) + 
+#                     I(log(lag.TrpzInd)^2), data = datsp)
+# 
+# # basic density dependence
+# plot(datsp$ddsite_ukbms, datsp$growth_ukbms_add1)
+# plot(datsp$lag.TrpzInd, datsp$growth_ukbms_add1)
+
+
+
+site_geo <- fread("C:/Users/Tyson/Desktop/Box Sync/Ohio/GIS/OHsites_reconciled.csv", header = TRUE)
+site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+
+datsp <- merge(datsp, site_geo[, c("SiteID", "lat", "lon"), with = FALSE], by = "SiteID")
+
+# 
+# mod.null1 <- lm(growth_ukbms_add1 ~ 
+#                     ddsite_ukbms + 
+#                     I(ddsite_ukbms^2), data = datsp)
+# 
+# 
+# # Spatial-temporal Leave One Out
+# 
+# m1 <- glm(growth_ukbms_add1 ~ 1, data = datsp, family = gaussian)
+# m2 <- glm(growth_ukbms_add1 ~ ddsite_ukbms, data = datsp, family = gaussian)
+# m3 <- glm(growth_ukbms_add1 ~ 
+#                     ddsite_ukbms + 
+#                     I(ddsite_ukbms^2), data = datsp, family = gaussian)
+# m4 <- glm(growth_ukbms_add1 ~ 
+#                     ddsite_ukbms + 
+#                     I(ddsite_ukbms^2) +
+#                     siteanom_currsum_meanTemp + 
+#                     siteanom_spring_meanTemp + 
+#                     siteanom_winter_meanTemp + 
+#                     siteanom_fall_meanTemp +  
+#                     siteanom_prevsum_meanTemp +
+#                     zmean, data = datsp, family = gaussian)
+# m5 <- glm(growth_ukbms_add1 ~ 
+#                     ddsite_ukbms + 
+#                     I(ddsite_ukbms^2) +
+#                     siteanom_currsum_meanTemp + 
+#                     siteanom_spring_meanTemp + 
+#                     siteanom_winter_meanTemp + 
+#                     siteanom_fall_meanTemp +  
+#                     siteanom_prevsum_meanTemp +
+#                     siteanom_prevspr_meanTemp +
+#                     zmean +
+#                     zmean:siteanom_currsum_meanTemp + 
+#                     zmean:siteanom_spring_meanTemp + 
+#                     zmean:siteanom_winter_meanTemp + 
+#                     zmean:siteanom_fall_meanTemp +  
+#                     zmean:siteanom_prevsum_meanTemp +
+#                     zmean:siteanom_prevspr_meanTemp, data = datsp, family = gaussian)
+
+# library(Imap)
+# # What is the ideal splitting distance?
+# dists <- dist(datsp[, c("lat", "lon"), with = FALSE])
+# dists_km <- round(GeoDistanceInMetresMatrix(as.data.frame(datsp[, c("lat", "lon"), with = FALSE])) / 1000)
+# df.sites <- as.data.frame(site_geo[, c("lat", "lon"), with = FALSE])
+# dists_meter <- GeoDistanceInMetresMatrix(df.sites)
+# summary(dists)
+# dists_km <- round(dists_meter/1000)
+
+datsp <- as.data.frame(datsp)
+datspmod <- datsp[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFact", "sp",
+                      "growth_ukbms_add1",
+                      "ddsite_ukbms",
+                      "siteanom_currsum_meanTemp",
+                      "siteanom_spring_meanTemp",
+                      "siteanom_winter_meanTemp",
+                      "siteanom_fall_meanTemp",
+                      "siteanom_prevsum_meanTemp",
+                      "siteanom_prevspr_meanTemp",
+                      "zmean")]
+datspmod$ddsite_ukbms_square <- I(datspmod$ddsite_ukbms^2)
+
+m5int <- lm(growth_ukbms_add1 ~ ddsite_ukbms +
+               ddsite_ukbms_square + 
+               (zmean + siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp +
+                    siteanom_prevspr_meanTemp)^2, 
+             data = datspmod)
+# 
+# m5exp <- gls(growth_ukbms_add1 ~ ddsite_ukbms +
+#                ddsite_ukbms_square + 
+#                (zmean + siteanom_currsum_meanTemp + 
+#                     siteanom_spring_meanTemp + 
+#                     siteanom_winter_meanTemp + 
+#                     siteanom_fall_meanTemp +  
+#                     siteanom_prevsum_meanTemp +
+#                     siteanom_prevspr_meanTemp)^2,
+#              correlation = corExp(form = ~lon + lat, nugget = TRUE),
+#              data = datspmod)
+
+
+
+source('spatiotempLOO.R')
+rsa <- seq(0.01, 1.01 , .05) #residual spatial autocorrelation
+training.sets <- list()
+test <- list()
+mods <- list(m5int)
+for (i in 1:length(rsa)){
+  training.sets[[i]] <- splittingST(data = datsp, 
+                               lon.lab="lon",
+                               lat.lab="lat",
+                               yr.lab = "Year",
+                               dist.split=rsa[i],
+                               time.split = 1)
+  test[[i]] <- modSelect(full.mod = mods[[1]], training = training.sets[[i]], steps = 50)
+
+}
+
+results <- data.frame()
+  for (m in 1:length(test)){
+    temp <- data.frame(model = m, rsa = rsa[m], loglik = test[[m]]$loglik, npar = length(coef(test[[m]]$fit)), aic = test[[m]]$AIC)
+    results <- rbind(results, temp)
+    # names(results) <- c("model", "rsa", "loglik", "npar", "AIC")
+  }
+
+
+library(sp)
+library(gstat)
+library(xts)
+library(spacetime)
+
+# get data into annoying spacetime format
+dat<-data.frame(SiteID = datspmod$SiteID, Year = datspmod$Year, resids=residuals(m5int))
+
+allcombo <- expand.grid(unique(datspmod$Year), unique(datspmod$SiteID))
+names(allcombo) <- c("Year", "SiteID")
+stdat <- merge(allcombo, dat, by = c("Year", "SiteID"), all.x = TRUE)
+
+sites <- unique(datspmod[, c("SiteID", "lat", "lon")])
+row.names(sites) <- sites$SiteID
+sites <- sites[, -1]
+sites <- SpatialPoints(sites)
+
+dat$tsyear <- paste("01-01-", dat$Year, sep = "")
+dat$tsyear <- mdy(dat$tsyear)
+time <- sort(unique(dat$tsyear))
+
+sd <- STFDF(sites, time, stdat)
+stsdf <- as(sd, "STSDF") 
+
+# space time variography
+
+# bubble plot of residuals over space
+spdf<-data.frame(SiteID = datspmod$SiteID, Year = datspmod$Year, resids=residuals(m5int),
+                 lat = datspmod$lat, lon = datspmod$lon)
+coordinates(spdf) <- c("lon", "lat")
+bubble(spdf, "resids", col = c("blue", "orange"), main = "Residuals", xlab = "X-coordinates", 
+    ylab = "Y-coordinates")
+
+# pooled variogram (time selection with replacement)
+rs = sample(dim(stsdf)[2], 100, replace = TRUE)
+lst = lapply(rs, function(i) { x = stsdf[,i]; x$ti = i; rownames(x@coords) = NULL; x} )
+ pts = do.call(rbind, lst)
+ v = variogram(resids~ti, pts[!is.na(pts$resids),], dX=0, width = .08)
+  vmod = fit.variogram(v, vgm("Sph"))
+plot(v, vmod)
+
+ # space time variogram
+ vv = variogram(resids~1, stsdf, width=.05, tlags=0:5)
+plot(vv)
+plot(vv, map = FALSE)
+
+
+
+
+
+
+library(geoR)
+dists <- dist(datspmod[, c("lat", "lon")])
+summary(dists)
+
+breaks = seq(0, 2, l = 20)
+
+vg <- variog(coords = datsp[, c("lat", "lon")], data = residuals(m5int), breaks = breaks)
+
+library(gstat)
+library(sp)
+
+spatdat <- cbind(datspmod, z.value)
+
+counts <- spatdat %>% 
+  group_by(SiteID, Year) %>%
+  summarise(Total = z.value)
+
+count_matrix <- as.matrix(cast(counts, SiteID ~ Year, value = "Total"))
+sites <- unique(spatdat[, c("SiteID", "lat", "lon")])
+coordinates(sites)<-c('lon','lat')
+
+
+
+var.mod<-variogram(resids~1,data = dat[dat$year == 2010,])
+plot(var.mod)
+
+
+library(gstat)
+library(sp)
+data(meuse)
+coordinates(meuse)=~x+y
+v1 = variogram(log(zinc)~1,meuse)
+v2 = variogram(log(cadmium)~1,meuse)
+m1 = fit.variogram(v1, vgm(1, "Sph", 800, 1))
+m2 = fit.variogram(v2, vgm(1, "Sph", 800, 1))
+plot(gamma~dist, v2, ylim = c(0, 1.05*max(v2$gamma)),col='red', ylab =
+'semivariance', xlab = 'distance')
+lines(variogramLine(m2, 1500), col='red')
+points(gamma~dist, v1, col='blue')
+lines(variogramLine(m1, 1500), col='blue')
+
+
+m5intyr <- update(m5int, . ~ . + YearFact)
+z.value <- residuals(m5int)
+x.coord <- datspmod$lon
+y.coord <- datspmod$lat
+w <- datspmod$Year
+library(ncf)
+ncf.cor <- correlog(x = x.coord, y = y.coord, z = z.value, w = w,
+                    increment=.1, resamp=500)
+plot(ncf.cor)
+
+#yearly residuals
+library(reshape)
+spatdat <- cbind(datspmod, z.value)
+
+counts <- spatdat %>% 
+  group_by(SiteID, Year) %>%
+  summarise(Total = z.value)
+
+count_matrix <- as.matrix(cast(counts, SiteID ~ Year, value = "Total"))
+sites <- unique(spatdat[, c("SiteID", "lat", "lon")])
+
+ncf.cor <- correlog(sites$lon, sites$lat, count_matrix,
+                    increment=.5, resamp=500, latlon = TRUE, na.rm = TRUE)
+plot(ncf.cor)
+
+
+
+# try another
+library(CommunityCorrelogram)
+samData <- as.matrix(cast(counts, Year ~ SiteID, value = "Total"))
+  
+test <- commcorrelogram(sampleData = samData, sampleTime = c(1997:2014),
+                        sampleLocation = cbind(sites[, c("lon", "lat")], z = 0),
+                        LocationNames = as.character(sites[, "SiteID"]),
+                        option = 3, lagSize=0.3,lagNumber=17,lagTol=0.15, numTests = 10)
+
+spdata <- cbind(x.coord, y.coord, z.value)
+
+vario <- variogram(z.value ~ 1, spdata, cutoff = 3)
+plot(vario, pch = 16, cex = 1.5)
+```
+
+
+
+
+
+
+
+
+
+
+Quick code to scale sites by mean temperature, accounting for random pts around OH.
+Doesn't look like it should actually matter. Forget about it for now.
+
+```{r site mean temperature}
+setwd("C:/Users/Tyson/Desktop/Box Sync/Ohio/daymet")
+
+
+site_geo <- fread("C:/Users/Tyson/Desktop/Box Sync/Ohio/GIS/OHsites_reconciled.csv", header = TRUE)
+site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+setwd("C:/Users/Tyson/Desktop/Box Sync/Ohio/daymet")
+source("revised.climdex.functions.R")
+
+
+
+
+DaymetSiteMean <- function(datafile){
+  source("revised.climdex.functions.R")
+
+  all_content = readLines(datafile)
+  skip_lead = all_content[-c(1:6)]
+  data = read.csv(textConnection(skip_lead), header = TRUE, stringsAsFactors = FALSE)
+  
+  data$date <- strptime(paste(data$year, data$yday, sep = " "), format = "%Y %j")
+  data$month <- month(data$date)
+  
+  site <- unlist(strsplit(datafile, "[/]"))[2]
+  site <- unlist(strsplit(site, "[.]"))[1]
+  site <- unlist(strsplit(site, "e"))[2]
+  data$site <- site
+  data <- data[which(data$year >= 1995), ]
+
+  names(data)[3] <- "tmax"
+  names(data)[4] <- "tmin"
+  names(data)[6] <- "prcp"
+  names(data)[8] <- "snow"
+  
+  data <- data[, c("year", "yday", "tmax", "tmin", "prcp", "snow", "date", "month", "site")]
+  
+  clim.input <- climdexInput.Tyson(tmax = data$tmax, tmin = data$tmin, prec = data$prcp,
+                                   tmax.dates = as.PCICt(data$date, "365"), 
+                                   tmin.dates = as.PCICt(data$date, "365"), 
+                                   prec.dates = as.PCICt(data$date, "365"), 
+                                   base.range = c(1980, 2014), n = 5 , northern.hemisphere = TRUE, 
+                                   temp.qtiles = c(.1, .9))
+# new temp mean function
+meanTempAll <- function(ci){
+  ts <- ci@data$tavg
+  return(mean(ci@data$tavg, na.rm = TRUE))
+}
+  
+  #season functions that work
+  meanTemp <- meanTempAll(clim.input)
+  
+  out <- data.frame(site = site, meanTemp)
+  return(out)
+}
+
+#run lapply on all daymet files with function, then rbindlist
+sitefilenames <- as.list(paste("sites", list.files("sites"), sep = "/"))
+randomfilenames <- as.list(paste("randomPts", list.files("randomPts"), sep = "/"))
+
+# too slow
+# datSites <- lapply(sitefilenames, DaymetSiteMean)
+# datRandom <- lapply(randomfilenames, DaymetSiteMean)
+
+
+library(parallel)
+# Calculate the number of cores
+no_cores <- detectCores()-1
+ 
+# Initiate cluster
+cl <- makeCluster(no_cores)
+clusterEvalQ(cl, {library(lubridate); library(climdex.pcic); library(reshape); library(dplyr)})
+datSites <- parLapply(cl, sitefilenames, DaymetSiteMean)
+datRandom <- parLapply(cl, randomfilenames, DaymetSiteMean)
+stopCluster(cl)
+
+library(data.table)
+meanSites <- rbindlist(datSites)
+meanRand <- rbindlist(datRandom)
+
+meanRand$site <- paste("R", as.character(meanRand$site), sep = "")
+
+# scaling alone
+meanSites$zmean <- scale(meanSites$meanTemp)
+meanRand$zmean <- scale(meanRand$meanTemp)
+
+# scaling together
+means <- rbind(meanSites, meanRand)
+means$zmeanall <- scale(means$meanTemp)
+
+sitemeans <- means[-grep("R", site)]
+plot(sitemeans$zmean, sitemeans$zmeanall)
+
+
+sitemeans[, SiteID := formatC(as.numeric(as.character(site)), width = 3, format = "d", flag = "0")]
+saveRDS(sitemeans, "data/sitemeans.rds")
+
+```
+
+
+
+
+```{r plotting model}
+
+library(sjPlot)
+# sjp.setTheme(theme = theme_minimal())
+
+weather <- mods[[6]]
+sjt.lmer(weather, file = "weather.html")
+r.squaredGLMM(weather)
+
+
+sjp.lmer(weather,facet.grid = FALSE,
+         sort.coef = "sort.all")
+# sjp.lmer(weather, "coef")
+
+sjp.lmer(weather, type = "poly", poly.term = "Zwinter")
+sjp.int(weather, type = "eff")  
+  
+  
+  
+  
+```
+  
+  
+  
+  
+Tangent
+Species traits and the phylogeny
+Chapter 3 work on common vs less common species in Ohio
+
+```{r phylo traits}
+library(ape)
+best.tree <- read.tree(file = "data/bestTree.txt")
+constr.tree <- read.tree(file = "data/constrained.txt")
+tr <- best.tree
+
+edge.col <- c(rep("blue", nrow(tr$edge)))
+tips <- which(tr$edge[,2] <= length(tr$tip.label))
+edge.col[tips] <- "red"
+
+plot.phylo(tr, type = "phylogram", use.edge.length = TRUE, edge.color = edge.col, cex = .5)
+
+
+sptraits <- datmod %>%
+  group_by(sp) %>%
+  dplyr::summarise(numobs = length(growth_ukbms_add1), 
+                meangrowth = mean(growth_ukbms_add1),
+                medcount = median(RawSum))
+names(sptraits)[1] <- "CommonName"
+
+OHtraits <- read.csv("C:/Users/Tyson/Desktop/Box Sync/Dissertation/OHtraits_R.csv") 
+OHtraits$CommonName <- as.character(OHtraits$CommonName)
+OHtraits$CommonName[2] <- "Azures"
+OHtraits <- OHtraits[1:120, c("CommonName", "MaxBroodNumb", "ResStatus", "WinterStage", "GenvsSpec")]
+
+SpeciesList <- readRDS("SpeciesList.rds")
+
+
+traits <- merge(SpeciesList, OHtraits, by = "CommonName", all.x = TRUE)
+traits <- merge(traits, sptraits, by = "CommonName", all.x = TRUE)
+
+traits$CommonName <- gsub(" ", "", traits$CommonName, fixed = TRUE)
+
+phy.tips <- data.frame(tip = 1:length(tr$tip.label), CommonName = tr$tip.label)
+spec <- merge(traits, phy.tips, by= "CommonName", all = TRUE)
+
+# remove species from tree that don't show up in OH
+spec <- spec[which(spec$Present >= 10), ]
+spec <- spec[-which(is.na(spec$tip)), ]
+rm.tips <- phy.tips$tip[-which(phy.tips$tip %in% spec$tip)]
+tr.edit <- drop.tip(tr, rm.tips)
+
+
+edge.col <- c(rep("blue", nrow(tr.edit$edge)))
+tips <- which(tr.edit$edge[,2] <= length(tr.edit$tip.label))
+edge.col[tips] <- "red"
+
+plot.phylo(tr.edit, type = "phylogram", use.edge.length = FALSE, edge.color = edge.col, cex = .5)
+
+
+library(RColorBrewer)
+growthCol <- brewer.pal(3, "RdYlGn")
+WintStgCol <- brewer.pal(4,"Set2")
+BroodCol <- brewer.pal(5, "Set2")
+
+# reorder spec data.frame, tip coloumn no longer useful after edited tree
+spec$CommonName <- factor(spec$CommonName, levels = tr.edit$tip.label)
+spec <- droplevels.data.frame(spec)
+spec$MaxBroodNumb <- factor(spec$MaxBroodNumb, levels = c(1:5))
+spec_ord <- with(spec, spec[order(CommonName),])
+WinTips <- spec_ord$WinterStage
+WinCol <- as.character(mapvalues(WinTips, from = levels(WinTips), to = WintStgCol))
+WinCol[is.na(WinCol)] <- "#B3B3B3"
+
+edge.col <- c(rep("blue", nrow(tr.edit$edge)))
+tips <- which(tr.edit$edge[,2] <= length(tr.edit$tip.label))
+edge.col[tips] <- WinCol
+
+plot.phylo(tr.edit, type = "phylogram", use.edge.length = FALSE, edge.color = edge.col, cex = .5)
+
+
+library(picante)
+color.plot.phylo(tr.edit, spec, trait = "WinterStage", taxa.names = "CommonName",
+                 col.names = WintStgCol, use.edge.length = FALSE)
+
+color.plot.phylo(tr.edit, spec, trait = "MaxBroodNumb", taxa.names = "CommonName",
+                 col.names = BroodCol, use.edge.length = FALSE)
+
+color.plot.phylo(tr.edit, spec, trait = "GenvsSpec", taxa.names = "CommonName",
+                 col.names = WintStgCol, use.edge.length = FALSE)
+
+
+color.plot.phylo(tr.edit, spec, trait = "ResStatus", taxa.names = "CommonName",
+                 col.names = WintStgCol[1:3], use.edge.length = FALSE)
+
+spec$logPres <- log(spec$Present)
+
+color.plot.phylo(tr.edit, spec, trait = "logPres", taxa.names = "CommonName",
+                 num.breaks = 3, col.names = WintStgCol[1:3], use.edge.length = FALSE,
+                 main = "Log(Number of sightings)")
+
+
+color.plot.phylo(tr.edit, spec, trait = "meangrowth", taxa.names = "CommonName",
+                 num.breaks = 2, col.names = c("red", "forest green"), use.edge.length = FALSE,
+                 main = "Ohio butterfly mean annual population growth rate and missing estimates")
+legend("bottomleft", legend=c("Declining", "Growing", "Data deficient"),
+   fill=c("red", "forest green", "black"), cex = 1.5)
+
+plot(spec$WinterStage, spec$meangrowth)
+plot(spec$GenvsSpec, spec$meangrowth)
+plot(spec$MaxBroodNumb, spec$meangrowth)
+plot(spec$numobs, spec$meangrowth)
+
+plot(spec$GenvsSpec[which(spec$numobs > 140)])
+plot(spec$GenvsSpec[-which(spec$numobs > 140)])
+
+plot(spec$WinterStage[which(spec$numobs > 140)])
+plot(spec$WinterStage[-which(spec$numobs > 140)])
+
+plot(spec$MaxBroodNumb[which(spec$numobs > 140)])
+plot(spec$MaxBroodNumb[-which(spec$numobs > 140)])
+
 
 ```
 

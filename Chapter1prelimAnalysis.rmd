@@ -1289,6 +1289,9 @@ data$YearFact <- as.factor(data$Year)
 
 
 mod1 <- lmer(GrowthRate ~ logNprev + landcover1 + landcover2 + (1 + logNprev + landcover1 + landcover2|CommonName), data = data)
+
+mod1alt <- glmer(N ~ logNprev + landcover1 + landcover2 + (1 + logNprev + landcover1 + landcover2|CommonName), data = data, family = "poisson")
+
 mod2 <- lmer(GrowthRate ~ logNprev + ZprevSum + ZcurrSum + Zwinter + Zfall + Zspring + (1 + logNprev + 
                                      ZprevSum + ZcurrSum + Zwinter + Zfall + Zspring|CommonName), data = data)
 
@@ -1404,6 +1407,63 @@ r.squaredLR(no.temp.mod, null.mod)
 r.squaredLR(Z6.2, no.temp.mod)
 
 
+####
+#trying stupidly large models
+
+test.formula <- as.formula(GrowthRate ~ logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2 + 
+                 landcover1:logNprev + landcover2:logNprev +
+                 Zwinter:landcover1 + Zwinter:landcover2 + 
+              I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+                (1 + logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2 + 
+                 landcover1:logNprev + landcover2:logNprev +
+                 Zwinter:landcover1 + Zwinter:landcover2 + 
+              I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2|CommonName) +
+             (1 + logNprev + Zwinter + I(Zwinter^2)|Site))
+
+test.fixed <- as.formula(GrowthRate ~ logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2 + 
+                 landcover1:logNprev + landcover2:logNprev +
+                 Zwinter:landcover1 + Zwinter:landcover2 + 
+              I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 + 
+                (1|CommonName) + (1|YearFact) + (1|Site))
+
+
+library(nloptr)
+defaultControl <- list(algorithm="NLOPT_LN_BOBYQA",xtol_rel=1e-6,maxeval=1e5)
+nloptwrap2 <- function(fn,par,lower,upper,control=list(),...) {
+    for (n in names(defaultControl)) 
+      if (is.null(control[[n]])) control[[n]] <- defaultControl[[n]]
+    res <- nloptr(x0=par,eval_f=fn,lb=lower,ub=upper,opts=control,...)
+    with(res,list(par=solution,
+                  fval=objective,
+                  feval=iterations,
+                  conv=if (status>0) 0 else status,
+                  message=message))
+}
+
+system.time(test.model <- lmer(test.formula, data=data, verbose=TRUE))
+
+system.time(test.model2 <- lmer(test.formula, data=data,
+control=lmerControl(optimizer="nloptwrap2")))
+system.time(test.model3 <- lmer(test.fixed, data=data,
+control=lmerControl(optimizer="nloptwrap2")))
+
+winter <- lmer(GrowthRate ~ logNprev + Zwinter + I(Zwinter^2) + landcover1 + landcover2 + 
+                 landcover1:logNprev + landcover2:logNprev +
+                 Zwinter:landcover1 + Zwinter:landcover2 + 
+              I(Zwinter^2):landcover1 +I(Zwinter^2):landcover2 +
+             (0 + logNprev|Site), data = data[CommonName == "Spicebush Swallowtail"])
+# spatial correlation
+library(ape)
+ozone.dists <- as.matrix(dist(cbind(ozone$Lon, ozone$Lat)))
+
+ozone.dists.inv <- 1/ozone.dists
+diag(ozone.dists.inv) <- 0
+
+# what about random forests?
+library(ranger)
+rf <- ranger(GrowthRate ~ logNprev*Zwinter*I(Zwinter^2)*landcover1*landcover2*CommonName, 
+             data = data, importance = "permutation")
+library(randomForest)
 
 #Use random structure from Z6.2
 #try other seasons
@@ -1443,12 +1503,23 @@ fall <- lmer(GrowthRate ~ logNprev + Zfall + landcover1 + landcover2 + Zfall:lan
 
 allseasons <- lmer(GrowthRate ~ logNprev +  ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
                     landcover1 + landcover2 + ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + 
-                     ZcurrSum:landcover1 + Zspring:landcover1 + Zwinter:landcover1 + Zfall:landcover1 +  ZprevSum:landcover1 + 
-                     ZcurrSum:landcover2 + Zspring:landcover2 + Zwinter:landcover2 + Zfall:landcover2 +  ZprevSum:landcover2 + 
+#                      ZcurrSum:landcover1 + Zspring:landcover1 + Zwinter:landcover1 + Zfall:landcover1 +  ZprevSum:landcover1 + 
+#                      ZcurrSum:landcover2 + Zspring:landcover2 + Zwinter:landcover2 + Zfall:landcover2 +  ZprevSum:landcover2 + 
                       I(ZcurrSum^2) + I(Zspring^2) + I(Zwinter^2) + I(Zfall^2) +  I(ZprevSum^2) +
              (1 + logNprev + ZcurrSum + Zspring + Zwinter + Zfall +  ZprevSum + landcover1 + landcover2|CommonName) + 
                (1 + logNprev|Site), data = data, optCtrl=list(maxfun=1e6))
 
+dd <- lmer(GrowthRate ~ logNprev +  
+             (1 + logNprev |CommonName), data = data, optCtrl=list(maxfun=1e6))
+dd1<- lmer(GrowthRate ~ logNprev +  
+             (1 |CommonName), data = data, optCtrl=list(maxfun=1e6))
+dd3<- lmer(GrowthRate ~ logNprev +   (1 |Site) +
+             (1 + logNprev |CommonName), data = data, optCtrl=list(maxfun=1e6))
+dd4<- lmer(GrowthRate ~ logNprev +   (1 + logNprev|Site) +
+             (1 + logNprev |CommonName), data = data, optCtrl=list(maxfun=1e6))
+dd5<- lmer(GrowthRate ~ logNprev +   (0 + logNprev|Site) +
+             (1 + logNprev |CommonName), data = data, optCtrl=list(maxfun=1e6))
+AIC(dd, dd1, dd3, dd4, dd5)
 
 r.squaredGLMM(allseasons)
 
@@ -1520,9 +1591,9 @@ library(coefplot2)
 coefplot2(model)
 
 library(sjPlot)
-sjp.setTheme(theme = theme_classic())
+sjp.setTheme(theme = theme_minimal())
 
-
+weather <- winter
 sjt.lmer(weather, file = "weather.html")
 r.squaredGLMM(weather)
 
@@ -1532,7 +1603,7 @@ sjp.lmer(weather,facet.grid = FALSE,
 sjp.lmer(weather, "coef")
 
 sjp.lmer(weather, type = "poly", poly.term = "Zwinter")
-sjp.int(winter, type = "eff")
+sjp.int(weather, type = "eff")
 
 
 library(lmerTest)
