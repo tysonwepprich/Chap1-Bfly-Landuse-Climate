@@ -7,44 +7,47 @@
 # Arguments:
 # - full model
 # - training data sets from splitting function
-modSelect <- function(full.mod, training, steps){
+modSelect <- function(full.mod, data, training, steps){
   mydeviance <- function(x, ...) {
     dev <- deviance(x)
     if (!is.null(dev)) 
       dev
     else extractAIC(x, k = 0)[2L]
   }
-  training <- training
   object <- full.mod
   Terms <- terms(object)
-  object$call$formula <- object$formula <- Terms
+  # object$call$formula <- object$formula <- Terms
   fdrop <- numeric()
   fadd <- attr(Terms, "factors")
   models <- vector("list", steps)
   n <- nobs(object, use.fallback = TRUE)
   fit <- object
-  nfit <- fit$call
+  # nfit <- fit$call
   bAIC <- extractAIC(fit)
   edf <- bAIC[1L]
   bAIC <- bAIC[2L]
-  bloglik <- stloo.loglik(model = fit, training = training, nfit = nfit)
+  # bloglik <- stloo.loglik(model = fit, training = training, nfit = nfit)
+  bRMSE <- stloo.rmse(model = fit, training = training, data = data)
+  
   if (is.na(bAIC)) 
     stop("AIC is not defined for this model, so 'step' cannot proceed")
   if (bAIC == -Inf) 
     stop("AIC is -infinity for this model, so 'step' cannot proceed")
   nm <- 1
-  models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), df.resid = n - 
-                         edf, change = "", AIC = bAIC, loglik = bloglik)
+  # models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), df.resid = n - 
+  #                        edf, change = "", AIC = bAIC, loglik = bloglik)
+  models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), change = "", AIC = bAIC, rmse = bRMSE, drops = 0)
   while (steps > 0) {
     steps <- steps - 1
     AIC <- bAIC
-    loglik <- bloglik
+    # loglik <- bloglik
+    rmse <- bRMSE
     ffac <- attr(Terms, "factors")
     scope <- factor.scope(ffac, list(add = fadd, drop = fdrop))
     aod <- NULL
     change <- NULL
     if (length(scope$drop)) {
-      aod <- drop1stloo(fit, scope$drop, training = training)
+      aod <- drop1stloo(object = fit, scope = scope$drop, training = training, data = data)
       rn <- row.names(aod)
       row.names(aod) <- c(rn[1L], paste("-", rn[-1L], sep = " "))
       if (any(aod$Df == 0, na.rm = TRUE)) {
@@ -60,65 +63,80 @@ modSelect <- function(full.mod, training, steps){
       aod <- aod[nzdf, ]
       if (is.null(aod) || ncol(aod) == 0) 
         break
-      nc <- match(c("loglik", "AIC"), names(aod))
+      nc <- match(c("rmse", "loglik", "AIC"), names(aod))
       nc <- nc[!is.na(nc)][1L]
-      o <- order(aod[, nc], decreasing = TRUE)
+      o <- order(aod[, nc], decreasing = FALSE)
       if (o[1L] == 1) 
         break
       change <- rownames(aod)[o[1L]]
     }
-    fit <- update(fit, paste("~ .", change), evaluate = FALSE)
-    fit <- eval.parent(fit)
+    
+    fit1 <- update(fit, paste("~ .", change), evaluate = FALSE)
+    fitmod <- eval.parent(fit1)
 
-    Terms <- terms(fit)
-    bAIC <- extractAIC(fit)
+    Terms <- terms(fitmod)
+    bAIC <- extractAIC(fitmod)
     edf <- bAIC[1L]
     bAIC <- bAIC[2L]
-    bloglik <- stloo.loglik(model = fit, training = training, nfit = fit)
+    # bloglik <- stloo.loglik(model = fit, training = training, nfit = fit)
+    bRMSE <- stloo.rmse(model = fitmod, training = training, data = data)
     
-    if (bloglik <= loglik - 1e-05) 
-      break    
+    
+    # if (bloglik <= loglik - 1e-05) 
+    #   break    
 
+    if (bRMSE >= rmse + 1e-05) 
+      break  
+    
     nm <- nm + 1
-    models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), df.resid = n - 
-                           edf, change = change, AIC = bAIC, loglik = bloglik)
+    # models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), df.resid = n - 
+    #                        edf, change = change, AIC = bAIC, loglik = bloglik, drops = nm)
+    models[[nm]] <- list(fit = fitmod, deviance = mydeviance(fit), 
+                         change = change, AIC = bAIC, rmse = bRMSE, drops = (nm - 1))
   }
  
 return(models[[nm]])  
 }
 
 
-drop1stloo <- function (object, scope, training) 
+drop1stloo <- function (object, scope, training, data) 
 {
   tl <- attr(terms(object), "term.labels")
-  if (missing(scope)) 
+  if (missing(scope)) {
     scope <- drop.scope(object)
-  else {
-    if (!is.character(scope)) 
+  }else {
+    if (!is.character(scope)) {
       scope <- attr(terms(update.formula(object, scope)), 
                     "term.labels")
-    if (!all(match(scope, tl, 0L) > 0L)) 
+    }
+    if (!all(match(scope, tl, 0L) > 0L)) {
       stop("scope is not a subset of term labels")
+    }
   }
   ns <- length(scope)
   ans <- matrix(nrow = ns + 1L, ncol = 2L, dimnames = list(c("<none>", 
-                                                             scope), c("df", "loglik")))
+                                                             scope), c("df", "rmse")))
   n <- length(object$residuals)
+  if(is.null(object$df.residaul)){
+    object$df.residual <- object$dims$N - object$dims$p
+  }
   edf <- n - object$df.residual
-  ans[1, ] <- c(edf, stloo.loglik(object, training, object))
+  # ans[1, ] <- c(edf, stloo.loglik(object, training, object))
+  ans[1, ] <- c(edf, stloo.rmse(object, training, data))
   n0 <- nobs(object, use.fallback = TRUE)
   env <- environment(formula(object))
   for (i in seq_len(ns)) {
     tt <- scope[i]
     
-    nfit <- update(object, as.formula(paste("~ . -", tt)), 
-                   evaluate = FALSE)
-    ans[i + 1, ] <- c(edf + 1, stloo.loglik(object, training, nfit))
+    nfit <- update(object, as.formula(paste("~ . -", tt)))
     
+    # ans[i + 1, ] <- c(edf + 1, stloo.loglik(object, training, nfit))
+    ans[i + 1, ] <- c(edf + 1, stloo.rmse(nfit, training, data))
   }
   dfs <- ans[1L, 1L] - ans[, 1L]
   dfs[1L] <- NA
-  aod <- data.frame(Df = dfs, loglik = ans[, 2])
+  # aod <- data.frame(Df = dfs, loglik = ans[, 2])
+  aod <- data.frame(Df = dfs, rmse = ans[, 2])
   aod
 }
 
@@ -133,7 +151,8 @@ drop1stloo <- function (object, scope, training)
 
 splittingST <- function(data, lon.lab, lat.lab, yr.lab, dist.split, time.split){
   # Computing the distance matrix from the data:
-    dist.matrix <- as.matrix(x=dist(x=data[,c(lon.lab,lat.lab)], method = "euclidean",diag = T, upper = T))
+  # dist.matrix <- as.matrix(x=dist(x=data[,c(lon.lab,lat.lab)], method = "euclidean",diag = T, upper = T))
+  dist.matrix <- GeoDistanceInMetresMatrix(data.frame(lat = data[, lat.lab], lon = data[, lon.lab]))
   time.matrix <- as.matrix(x=dist(x=data[, yr.lab], method = "euclidean",diag = T, upper = T))
   
   # Initializing the 'training' object
@@ -148,6 +167,50 @@ splittingST <- function(data, lon.lab, lat.lab, yr.lab, dist.split, time.split){
 }
 
 
+######################################################################
+# Computing Spatial Leave One Out (SLOO) logLikelihood from a model ##
+######################################################################
+
+# Arguments:
+# - model: an object of class 'lm' or 'glm' giving the model considered.
+# - training: the 'list' return by the 'splitting' function (see splitting.r).
+
+stloo.rmse <- function(model, training, data){
+  modeldat <- as.data.frame(data)
+  predmod <<- model
+  predform <<- formula(predmod)
+  # Creating the response variable name
+  y <- as.character(x=formula(x=predmod)[2])
+  # Initializing the 'logLik' object
+  sqerr <- vector(mode="numeric",length=nrow(modeldat))
+  # Checking that the minimal number of observations in the training sets
+  # is not lower than the number of parameters in the model considered.
+  if(min(as.numeric(x=summary(object=training)[,1]))<(length(x=predmod$coef)+1)){
+    # Return NA if the minimal number of observations in the training sets
+    # is lower than the number of parameters of the model considered
+    print(x="Warning: too high threshold distance in 'training', NA is return")
+    return(value=NA)
+  }
+  else {
+    # Calculating the SLOO logLikelihoods for each observation i
+    for(i in 1:nrow(modeldat)){ 
+      # Extracting the i-st training set:
+      data.split <- as.data.frame(modeldat[training[[i]],])
+      # Calculating the model parameters from the i-st training set:
+      # m <- glm(formula=formula(nfit),data=data.split,family= model$family)
+      m <- gls(model = predform, 
+          data = data.split, correlation = corExp(form = ~ lat + lon | YearFact), method = "ML")
+      # Predicting the i-st observation from the i-st training set:
+      m.pred <- predict(object=m, newdata=modeldat[i,])
+      # Calculating the probability of the i-st observed value according to the predicted one by the i-st training set:
+      sqerr[i] <- (modeldat[i,y] - m.pred)^2
+
+    }
+    # Calculating the overall SLOO rmse:
+    rmse <- sqrt(mean(sqerr))
+    return(value = rmse)
+  }
+}
 
 
 ######################################################################
@@ -211,7 +274,7 @@ stloo.loglik <- function(model, training, nfit){
 ReplaceLowerOrUpperTriangle <- function(m, triangle.to.replace){
   # If triangle.to.replace="lower", replaces the lower triangle of a square matrix with its upper triangle.
   # If triangle.to.replace="upper", replaces the upper triangle of a square matrix with its lower triangle.
-  
+
   if (nrow(m) != ncol(m)) stop("Supplied matrix must be square.")
   if      (tolower(triangle.to.replace) == "lower") tri <- lower.tri(m)
   else if (tolower(triangle.to.replace) == "upper") tri <- upper.tri(m)
@@ -225,7 +288,7 @@ GeoDistanceInMetresMatrix <- function(df.geopoints){
   # M[i,j] = M[j,i] = Distance between (df.geopoints$lat[i], df.geopoints$lon[i]) and
   # (df.geopoints$lat[j], df.geopoints$lon[j]).
   # The row and column names are given by df.geopoints$name.
-  
+
   GeoDistanceInMetres <- function(g1, g2){
     # Returns a vector of distances. (But if g1$index > g2$index, returns zero.)
     # The 1st value in the returned vector is the distance between g1[[1]] and g2[[1]].
@@ -238,22 +301,63 @@ GeoDistanceInMetresMatrix <- function(df.geopoints){
     }
     return(mapply(DistM, g1, g2))
   }
-  
+
   n.geopoints <- nrow(df.geopoints)
-  
+
   # The index column is used to ensure we only do calculations for the upper triangle of points
   df.geopoints$index <- 1:n.geopoints
-  
+
   # Create a list of lists
   list.geopoints <- by(df.geopoints[,c("index", "lat", "lon")], 1:n.geopoints, function(x){return(list(x))})
-  
+
   # Get a matrix of distances (in metres)
   mat.distances <- ReplaceLowerOrUpperTriangle(outer(list.geopoints, list.geopoints, GeoDistanceInMetres), "lower")
-  
+
   # Set the row and column names
   rownames(mat.distances) <- df.geopoints$name
   colnames(mat.distances) <- df.geopoints$name
-  
+
   return(mat.distances)
 }
 
+# EDIT predict.gls so that factor levels work 
+# see http://stackoverflow.com/questions/22229788/why-does-predict-on-a-subset-of-the-original-data-fail-using-gls-when-lm-does
+
+predict.gls.tyson <- function (object, newdata, na.action = na.fail, ...) 
+{
+  if (missing(newdata)) {
+    return(fitted(object))
+  }
+  form <- nlme::getCovariateFormula(object)
+  mfArgs <- list(formula = form, data = newdata, na.action = na.action)
+  # mfArgs$drop.unused.levels <- TRUE
+  dataMod <- do.call(model.frame, mfArgs)
+  contr <- object$contrasts
+  for (i in names(dataMod)) {
+    if (inherits(dataMod[, i], "factor") && !is.null(contr[[i]])) {
+      levs <- levels(dataMod[, i])
+      levsC <- dimnames(contr[[i]])[[1]]
+      if (any(wch <- is.na(match(levs, levsC)))) {
+        stop(sprintf(ngettext(sum(wch), "level %s not allowed for %s", 
+                              "levels %s not allowed for %s"), paste(levs[wch], 
+                                                                     collapse = ",")), domain = NA)
+      }
+      attr(dataMod[, i], "contrasts") <- contr[[i]][levs, 
+                                                    , drop = FALSE]
+    }
+  }
+  N <- nrow(dataMod)
+  if (length(all.vars(form)) > 0) {
+    X <- model.matrix(form, dataMod)
+  }
+  else {
+    X <- array(1, c(N, 1), list(row.names(dataMod), "(Intercept)"))
+  }
+  cf <- coef(object)
+  val <- c(X[, names(cf), drop = FALSE] %*% cf)
+  lab <- "Predicted values"
+  if (!is.null(aux <- attr(object, "units")$y)) {
+    lab <- paste(lab, aux)
+  }
+  structure(val, label = lab)
+}

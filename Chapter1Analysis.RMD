@@ -1617,7 +1617,7 @@ datmodcut <- datmod2 %>%
   dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
   filter(numobs > 140)
 
-spec <- "Hackberry Emperor"
+spec <- "Least Skipper"
 
 datsp <- datmodcut %>% filter(sp == spec) 
 # 
@@ -1636,6 +1636,16 @@ datsp <- datmodcut %>% filter(sp == spec)
 
 site_geo <- fread("C:/Users/Tyson/Desktop/Box Sync/Ohio/GIS/OHsites_reconciled.csv", header = TRUE)
 site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+
+# problem with spatial analysis when sites have same coordinates
+# duplat <- site_geo[duplicated(site_geo[, c("lat", "lon"), with = FALSE])]$lat
+# duplon <- site_geo[duplicated(site_geo[, c("lat", "lon"), with = FALSE])]$lon
+# dupsites <- site_geo[lat %in% duplat & lon %in% duplon]
+
+# jitter coordinates slightly
+site_geo$lat <- site_geo$lat + rnorm(length(site_geo$lat), mean = 0, sd = 0.0001)
+site_geo$lon <- site_geo$lon + rnorm(length(site_geo$lon), mean = 0, sd = 0.0001)
+
 
 datsp <- merge(datsp, site_geo[, c("SiteID", "lat", "lon"), with = FALSE], by = "SiteID")
 
@@ -1700,7 +1710,7 @@ datspmod <- datsp[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFact", 
                       "zmean")]
 datspmod$ddsite_ukbms_square <- I(datspmod$ddsite_ukbms^2)
 
-m5int <- lm(growth_ukbms_add1 ~ ddsite_ukbms +
+m5int <- glm(growth_ukbms_add1 ~ ddsite_ukbms +
                ddsite_ukbms_square + 
                (zmean + siteanom_currsum_meanTemp + 
                     siteanom_spring_meanTemp + 
@@ -1708,14 +1718,14 @@ m5int <- lm(growth_ukbms_add1 ~ ddsite_ukbms +
                     siteanom_fall_meanTemp +  
                     siteanom_prevsum_meanTemp +
                     siteanom_prevspr_meanTemp)^2, 
-             data = datspmod)
+             data = datspmod, family = gaussian)
 # 
 # m5exp <- gls(growth_ukbms_add1 ~ ddsite_ukbms +
-#                ddsite_ukbms_square + 
-#                (zmean + siteanom_currsum_meanTemp + 
-#                     siteanom_spring_meanTemp + 
-#                     siteanom_winter_meanTemp + 
-#                     siteanom_fall_meanTemp +  
+#                ddsite_ukbms_square +
+#                (zmean + siteanom_currsum_meanTemp +
+#                     siteanom_spring_meanTemp +
+#                     siteanom_winter_meanTemp +
+#                     siteanom_fall_meanTemp +
 #                     siteanom_prevsum_meanTemp +
 #                     siteanom_prevspr_meanTemp)^2,
 #              correlation = corExp(form = ~lon + lat, nugget = TRUE),
@@ -1724,18 +1734,18 @@ m5int <- lm(growth_ukbms_add1 ~ ddsite_ukbms +
 
 
 source('spatiotempLOO.R')
-rsa <- seq(0.01, 1.01 , .05) #residual spatial autocorrelation
+rsa <- seq(0, .5 , .05) #residual spatial autocorrelation
 training.sets <- list()
 test <- list()
-mods <- list(m5int)
+model <- m5int
 for (i in 1:length(rsa)){
-  training.sets[[i]] <- splittingST(data = datsp, 
+  training.sets[[i]] <- splittingST(data = datspmod, 
                                lon.lab="lon",
                                lat.lab="lat",
                                yr.lab = "Year",
                                dist.split=rsa[i],
                                time.split = 1)
-  test[[i]] <- modSelect(full.mod = mods[[1]], training = training.sets[[i]], steps = 50)
+  test[[i]] <- modSelect(full.mod = model, training = training.sets[[i]], steps = 50)
 
 }
 
@@ -1745,6 +1755,37 @@ results <- data.frame()
     results <- rbind(results, temp)
     # names(results) <- c("model", "rsa", "loglik", "npar", "AIC")
   }
+
+# make stloo fitting a parallel function
+rsa <- as.list(seq(0, .5 , .05)) #residual spatial autocorrelation
+
+fitstloo <- function(rsa, model){
+  # source("spatiotempLOO.R")
+  training.sets <- list()
+  test <- list()
+  training.sets <- splittingST(data = model$data, 
+                               lon.lab="lon",
+                               lat.lab="lat",
+                               yr.lab = "Year",
+                               dist.split=rsa,
+                               time.split = 1)
+  test <- modSelect(full.mod = model, training = training.sets, steps = 50)
+  return(test)
+}
+
+library(parallel)
+# Calculate the number of cores
+no_cores <- detectCores()-1
+# Initiate cluster
+cl <- makeCluster(no_cores)
+clusterEvalQ(cl, {source("spatiotempLOO.R")})
+clusterExport(cl, "datspmod")
+datList <- parLapply(cl, rsa, fitstloo, model = m5int)
+stopCluster(cl)
+
+
+
+
 
 
 library(sp)
@@ -1772,6 +1813,7 @@ sd <- STFDF(sites, time, stdat)
 stsdf <- as(sd, "STSDF") 
 
 # space time variography
+# basically shows that (for species I looked at) semivariance plateaus around .2 to .3
 
 # bubble plot of residuals over space
 spdf<-data.frame(SiteID = datspmod$SiteID, Year = datspmod$Year, resids=residuals(m5int),
@@ -1884,6 +1926,276 @@ plot(vario, pch = 16, cex = 1.5)
 
 
 
+```{r stloo parallel}
+
+
+datmod$YearFact <- as.factor(datmod$Year)
+sitemeans <- readRDS("data/sitemeans.rds")
+
+datmod2 <- merge(datmod, sitemeans[, c("zmean", "SiteID"), with = FALSE], by = "SiteID")
+
+site_geo <- fread("C:/Users/Tyson/Desktop/Box Sync/Ohio/GIS/OHsites_reconciled.csv", header = TRUE)
+site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+
+# jitter coordinates slightly
+site_geo$lat <- site_geo$lat + rnorm(length(site_geo$lat), mean = 0, sd = 0.0001)
+site_geo$lon <- site_geo$lon + rnorm(length(site_geo$lon), mean = 0, sd = 0.0001)
+
+datmod2 <- merge(datmod2, site_geo[, c("SiteID", "lat", "lon"), with = FALSE], by = "SiteID")
+
+datmodcut <- datmod2 %>%
+  group_by(sp) %>%
+  dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
+  dplyr::mutate(ddsite_ukbms_square = I(ddsite_ukbms^2)) %>%
+  filter(numobs > 100)
+
+datmodcut <- as.data.frame(datmodcut)
+
+datmodcut <- datmodcut[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFact", "sp",
+                           "growth_ukbms_add1",
+                           "ddsite_ukbms", "ddsite_ukbms_square",
+                           "siteanom_currsum_meanTemp",
+                           "siteanom_spring_meanTemp",
+                           "siteanom_winter_meanTemp",
+                           "siteanom_fall_meanTemp",
+                           "siteanom_prevsum_meanTemp",
+                           "siteanom_prevspr_meanTemp",
+                           "zmean")]
+
+spec2model <- unique(datmodcut$sp)
+rsa <- c(0, 10, 20)
+models <- c("dens", "clim", "land", "d.c", "d.l", "d.c.l.add", "d.c.l.int")
+
+# models to use in 6 scenarios
+modlist <- list()
+modlist[["dens"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                  ddsite_ukbms_square)
+
+modlist[["clim"]] <- as.formula(growth_ukbms_add1 ~ zmean * (siteanom_currsum_meanTemp + 
+                                                               siteanom_spring_meanTemp + 
+                                                               siteanom_winter_meanTemp + 
+                                                               siteanom_fall_meanTemp +  
+                                                               siteanom_prevsum_meanTemp +
+                                                               siteanom_prevspr_meanTemp))
+ 
+modlist[["land"]] <- as.formula(growth_ukbms_add1 ~ PC1*PC2)
+
+modlist[["d.c"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square + 
+                                 zmean * (siteanom_currsum_meanTemp + 
+                                            siteanom_spring_meanTemp + 
+                                            siteanom_winter_meanTemp + 
+                                            siteanom_fall_meanTemp +  
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp))
+
+modlist[["d.l"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square + PC1*PC2)
+
+modlist[["d.c.l.add"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square + 
+                                 zmean * (siteanom_currsum_meanTemp + 
+                                            siteanom_spring_meanTemp + 
+                                            siteanom_winter_meanTemp + 
+                                            siteanom_fall_meanTemp +  
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) + 
+                                   PC1*PC2)
+
+modlist[["d.c.l.int"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square + 
+                                 zmean * (siteanom_currsum_meanTemp + 
+                                            siteanom_spring_meanTemp + 
+                                            siteanom_winter_meanTemp + 
+                                            siteanom_fall_meanTemp +  
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) +
+                                   PC1 * (zmean + siteanom_currsum_meanTemp + 
+                                            siteanom_spring_meanTemp + 
+                                            siteanom_winter_meanTemp + 
+                                            siteanom_fall_meanTemp +  
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) + 
+                                   PC2 * (zmean + siteanom_currsum_meanTemp + 
+                                            siteanom_spring_meanTemp + 
+                                            siteanom_winter_meanTemp + 
+                                            siteanom_fall_meanTemp +  
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) + 
+                                   PC1:PC2)
+
+
+argsdf <- expand.grid(spec2model, rsa, models)
+argslist <- as.list(1:nrow(argsdf))
+# make stloo fitting a parallel function
+argstrain <- expand.grid(spec2model, rsa)
+argstrainlist <- as.list(1:nrow(argstrain))
+
+
+getTraining <- function(rownum){
+  temp <- argstrain[rownum, ]
+  spec <- temp[1, 1]
+  rsa <- temp[1, 2]
+  datsp <- datmodcut %>% filter(sp == spec) 
+  datsp <- as.data.frame(datsp)
+  training.sets <- splittingST(data = datsp, 
+                               lon.lab="lon",
+                               lat.lab="lat",
+                               yr.lab = "Year",
+                               dist.split=rsa,
+                               time.split = 1)
+  return(training.sets)
+}
+
+# library(parallel)
+# # Calculate the number of cores
+# no_cores <- detectCores()
+# # Initiate cluster
+# cl <- makeCluster(no_cores)
+# clusterEvalQ(cl, {source("spatiotempLOO.R"); library(dplyr)})
+# clusterExport(cl, c("datmodcut", "argstrain"))
+# trainList <- parLapply(cl, argstrainlist, getTraining)
+# stopCluster(cl)
+
+# saveRDS(trainList, "LOOtrainingsets.rds")
+trainList <- readRDS("LOOtrainingsets.rds")
+
+library(MASS)
+library(nlme)
+
+fitstloo <- function(rownum){
+  
+  temp <- argsdf[rownum, ]
+  spec <- temp[1, 1]
+  RSA <- temp[1, 2]
+  index <- as.character(temp[1,3])
+  modcall <<- modlist[[index]]
+  
+  training.set <- trainList[[which(argstrain[,1] == spec & argstrain[,2] == RSA)]]
+  
+  datsp <<- datmodcut %>% filter(sp == spec) 
+  datsp <- as.data.frame(datsp)
+  
+  mfull <- gls(modcall, 
+               data = datsp, correlation = corExp(form = ~ lat + lon | YearFact), method = "ML")
+
+  test <- modSelect(full.mod = mfull, data = datsp, training = training.set, steps = 100)
+  
+  test$stepmod <- stepAIC(mfull, direction = "backward", test = "Chisq", trace = 0)
+  return(test)
+}
+
+library(parallel)
+# Calculate the number of cores
+no_cores <- detectCores()
+# Initiate cluster
+# cl <- makeCluster(no_cores)
+cl <- makeCluster(4)
+clusterEvalQ(cl, {source("spatiotempLOO.R"); library(dplyr); library(MASS); library(nlme)})
+clusterExport(cl, c("datmodcut", "argsdf", "argstrain", "trainList", "modlist"), envir = .GlobalEnv)
+datList <- parLapply(cl, argslist[c(1, 100, 500, 800)], fitstloo)
+stopCluster(cl)
+
+
+
+
+saveRDS(datList, "speciesclimatemodels.rds")
+
+datList <- readRDS("speciesclimatemodels.rds")
+results <- data.frame()
+test <- datList
+  for (m in 1:length(argslist)){
+    species <- argsdf[m, 1]
+    rsa <- argsdf[m, 2]
+    temp <- data.frame(model = m, species = species, rsa = rsa, loglik = test[[m]]$loglik, 
+                       npar = length(coef(test[[m]]$fit)), aic = test[[m]]$AIC, 
+                       npar_step = length(coef(test[[m]]$stepmod)), 
+                       aic_step = AIC(test[[m]]$stepmod))
+    results <- rbind(results, temp)
+    # names(results) <- c("model", "rsa", "loglik", "npar", "AIC")
+  }
+
+results %>% arrange(species, rsa)
+```
+
+
+
+```{r rsa}
+# playing around with RSA
+
+
+  datsp <- datmodcut %>% filter(sp == "Little Wood Satyr") 
+
+  datsp <- as.data.frame(datsp)
+  datspmod <- datsp[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFact", "sp",
+                        "growth_ukbms_add1",
+                        "ddsite_ukbms",
+                        "siteanom_currsum_meanTemp",
+                        "siteanom_spring_meanTemp",
+                        "siteanom_winter_meanTemp",
+                        "siteanom_fall_meanTemp",
+                        "siteanom_prevsum_meanTemp",
+                        "siteanom_prevspr_meanTemp",
+                        "zmean")]
+  datspmod$ddsite_ukbms_square <- I(datspmod$ddsite_ukbms^2)
+  
+modgls <- gls(growth_ukbms_add1 ~ ddsite_ukbms +
+                 ddsite_ukbms_square + 
+                 (siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp +
+                    siteanom_prevspr_meanTemp)*zmean, 
+               data = datspmod, correlation = corExp(form = ~ lat + lon | YearFact),
+              method = "ML")
+
+library(nlme)
+m2 <- glm(growth_ukbms_add1 ~ ddsite_ukbms +
+                 ddsite_ukbms_square + 
+                 (siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp +
+                    siteanom_prevspr_meanTemp)*zmean, 
+               data = datspmod, family = gaussian)
+
+
+m0 <- gls(growth_ukbms_add1 ~ (siteanom_currsum_meanTemp + 
+                    siteanom_spring_meanTemp + 
+                    siteanom_winter_meanTemp + 
+                    siteanom_fall_meanTemp +  
+                    siteanom_prevsum_meanTemp +
+                    siteanom_prevspr_meanTemp)*zmean, 
+               data = datspmod, method = "ML")
+m1 <- gls(growth_ukbms_add1 ~ ddsite_ukbms +
+                 ddsite_ukbms_square, 
+               data = datspmod, correlation = corExp(form = ~ lat + lon | YearFact),method = "ML")
+
+vario1 <- Variogram(modgls, form = ~lon + lat|YearFact, resType = "pearson")
+vario2 <- Variogram(m2, form = ~lon + lat|YearFact, resType = "pearson")
+
+plot(vario1, smooth = TRUE, ylim = c(0, 1.2))
+
+plot(vario2, smooth = TRUE, ylim = c(0, 1.2))
+
+temp <- gls(growth_ukbms_add1 ~ 1,
+            data = datspmod, correlation = corExp(form = ~ lat + lon | YearFact),method = "ML")
+v <- Variogram(temp, form =  ~lon + lat|YearFact, resType = "pearson")
+plot(v)
+
+dists <- dist(site_geo[, c("lat", "lon"), with = FALSE], diag = TRUE, upper = TRUE)
+d <- as.matrix(dists)
+d[which(d == 0)] <- NA
+min.d <- apply(d, 1, min, na.rm = TRUE)
+max.d <- apply(d, 1, max, na.rm = TRUE)
+
+num.obs <- apply(d, 1, function(x) length(which(x < 25)))
+
+dists_km <- round(GeoDistanceInMetresMatrix(as.data.frame(site_geo[, c("lat", "lon"), with = FALSE])) / 1000)
+
+```
 
 
 
