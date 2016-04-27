@@ -3405,6 +3405,122 @@ r.squaredLR(mod, null = nullmod)
 ```
 
 
+```{r randomforest}
+
+
+
+datmod$YearFact <- as.factor(datmod$Year)
+sitemeans <- readRDS("data/sitemeans.rds")
+
+datmod2 <- merge(datmod, sitemeans[, c("zmean", "SiteID"), with = FALSE], by = "SiteID")
+
+site_geo <- fread("data/OHsites_reconciled.csv", header = TRUE)
+site_geo[, SiteID := formatC(as.numeric(Name), width = 3, format = "d", flag = "0")]
+
+# jitter coordinates slightly
+site_geo$lat <- site_geo$lat + rnorm(length(site_geo$lat), mean = 0, sd = 0.0001)
+site_geo$lon <- site_geo$lon + rnorm(length(site_geo$lon), mean = 0, sd = 0.0001)
+
+datmod2 <- merge(datmod2, site_geo[, c("SiteID", "lat", "lon"), with = FALSE], by = "SiteID")
+
+datmodcut <- datmod2 %>%
+  group_by(sp) %>%
+  dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
+  dplyr::mutate(ddsite_ukbms_square = I(ddsite_ukbms^2)) %>%
+  filter(numobs > 100)
+
+datmodcut <- as.data.frame(datmodcut)
+
+datmodcut <- datmodcut[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFact", "sp",
+                           "growth_ukbms_add1",
+                           "ddsite_ukbms", "ddsite_ukbms_square",
+                           "siteanom_currsum_meanTemp",
+                           "siteanom_spring_meanTemp",
+                           "siteanom_winter_meanTemp",
+                           "siteanom_fall_meanTemp",
+                           "siteanom_prevsum_meanTemp",
+                           "siteanom_prevspr_meanTemp",
+                           "zmean")]
+
+spec2model <- unique(datmodcut$sp)
+
+
+library(randomForest)
+
+rflist <- list()
+for (i in 1:length(spec2model)){
+  spec <- spec2model[i]
+  print(spec)
+  rfdat <- datmodcut[which(datmodcut$sp == spec2model[i]), ]
+  rfdat$SiteID <- NULL
+  rfdat$YearFact <- NULL
+  rfdat$sp <- NULL
+  rfdat$Year <- NULL
+  y <- rfdat$growth_ukbms_add1
+  x <- rfdat[, -5]
+  mod <- randomForest(x = x, y = y, importance = TRUE, ntree = 1001, mtry = 2)
+  rflist[[i]] <- mod
+  rflist[[i]]$species <- spec
+}
+
+# saveRDS(rflist, "randomForestMods.rds")
+# 
+# result <- replicate(5, rfcv(x, y), simplify=FALSE)
+# error.cv <- sapply(result, "[[", "error.cv")
+# matplot(result[[1]]$n.var, cbind(rowMeans(error.cv), error.cv), type="l",
+#         lwd=c(2, rep(1, ncol(error.cv))), col=1, lty=1, log="x",
+#         xlab="Number of variables", ylab="CV Error")
+
+
+
+# library won't install
+# 
+# library(forestFloor)
+# #compute forestFloor object, often only 5-10% time of growing forest
+# ff = forestFloor(
+#   rf.fit = rfo,       # mandatory
+#   X = X,              # mandatory
+#   calc_np = FALSE,    # TRUE or FALSE both works, makes no difference
+#   binary_reg = FALSE  # takes no effect here when rfo$type="regression"
+# )
+# 
+# 
+# #plot partial functions of most important variables first
+# plot(ff,                       # forestFloor object
+#      plot_seq = 1:6,           # optional sequence of features to plot
+#      orderByImportance=TRUE    # if TRUE index sequence by importance, else by X column  
+# )
+
+# 
+# modlist[["d.c.l.int"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+#                                  ddsite_ukbms_square + 
+#                                  zmean * (siteanom_currsum_meanTemp + 
+#                                             siteanom_spring_meanTemp + 
+#                                             siteanom_winter_meanTemp + 
+#                                             siteanom_fall_meanTemp +  
+#                                             siteanom_prevsum_meanTemp +
+#                                             siteanom_prevspr_meanTemp) +
+#                                    PC1 * (zmean + siteanom_currsum_meanTemp + 
+#                                             siteanom_spring_meanTemp + 
+#                                             siteanom_winter_meanTemp + 
+#                                             siteanom_fall_meanTemp +  
+#                                             siteanom_prevsum_meanTemp +
+#                                             siteanom_prevspr_meanTemp) + 
+#                                    PC2 * (zmean + siteanom_currsum_meanTemp + 
+#                                             siteanom_spring_meanTemp + 
+#                                             siteanom_winter_meanTemp + 
+#                                             siteanom_fall_meanTemp +  
+#                                             siteanom_prevsum_meanTemp +
+#                                             siteanom_prevspr_meanTemp) + 
+#                                    PC1:PC2)
+
+
+
+
+
+```
+
+
 
 ```{r rsa}
 # playing around with RSA
