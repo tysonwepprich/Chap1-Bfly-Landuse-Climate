@@ -47,6 +47,7 @@ library(lme4)
 library(MuMIn)
 
 source('chap1functions.R')
+source('spatiotempLOO.R')
 
 ```
 
@@ -134,7 +135,61 @@ for (sp in species){
   
   saveRDS(rawcounts, file = paste("RDSfiles/rawcounts", sp, ".rds", sep = ""))
   
-  }
+}
+
+#how does outlier removal affect counts?
+# curious for multivoltine chapter, testing against whole state rather than 4 regions
+# maybe not that big a deal with bootstrap?
+
+# species <- read.csv("../multivoltine/data/MultivoltineSpecies.csv")[,1]
+# 
+# output <- list()
+# for (sp in species){
+# 
+#   print(sp)
+#   spdat <- data[CommonName == sp]
+#   spdat <- unique(spdat) #not sure why there would be duplicates!
+#   setkey(spdat, SeqID)
+#   
+#   #Add zeros to surveys when species not counted during a survey
+#   #Results in dataset will all 20383 surveys
+#   
+#   test <- merge(surveys, spdat, by = c("SeqID", "SiteID", "SiteDate", "Region", "Week"), all.x = TRUE)
+#   counts <- test[, `:=` (CheckListKey = NULL,
+#                          CommonName = NULL)]
+#   counts$Total <- plyr::mapvalues(counts[,Total], from = NA, to = 0)
+#   
+#   #Filter dataset
+#   #Remove pilot year
+#   counts <- counts[year(SiteDate) > 1995]
+#   counts[, GrandTotal := sum(Total), by = "SiteID"]
+#   counts <- counts[GrandTotal > 0]
+# 
+#   counts[, Ordinal := yday(SiteDate)]
+#   counts[, Year := year(SiteDate)]
+#   counts[, Region := "ALL"]
+#   
+#   counts[, `:=` (SurvPerYear = length(unique(SeqID)),
+#                            YearTotal = sum(Total)), 
+#                    by = list(SiteID, Year)]
+#   
+#   counts <- counts[Total > 0]
+#   
+#   rawcounts <- OutlierDetect(counts)
+#   rawcounts[, CommonName := sp]
+#   #Filter dataset of outlying counts
+#   output[[sp]] <- rawcounts
+# }
+# 
+# mvcounts <- rbindlist(output)
+# mv <- mvcounts %>%
+#   filter(YearTotal >=5 & SurvPerYear >=15)
+# mv <- mv %>%
+#   group_by(CommonName, Year, SiteID) %>%
+#   mutate(DaysPresent = length(which(Total > 0))) %>%
+#   filter(DaysPresent >= 3)
+
+
 ```
 
 Here's where the regional GAM comes in.
@@ -714,14 +769,17 @@ comp_pca <- clr(as.matrix(landuse_pca[,2:6, with = FALSE] + 1))
 mod <- prcomp(comp_pca) # rda or prcomp works too
 
 # plot contours of landuse proportion on pca results
-mod.sf <- ordisurf(mod ~ agriculture_prop, data = landuse_pca, plot = FALSE, scaling = 3)
+mod.sf <- ordisurf(mod ~ grassland_shrub_prop, data = landuse_pca, plot = FALSE, scaling = 3)
 plot(mod.sf, col = "forestgreen")
 
+# save results
+# prettyR::delim.table(mod, filename = "lulc_pca_loadings.csv")
 
 # mod 2 PCs explain 80% variation
 # PC1 is less ag/more developed as it gets larger
 # PC2 is less forest/grassland, more developed as it gets larger
-lulc_pc <- data.frame(SiteID = landuse_pca$SiteID, PC1 = scores(mod)[,1], PC2 = scores(mod)[,2])
+lulc_pc <- data.frame(SiteID = landuse_pca$SiteID, PC1 = scores(mod)[,1], PC2 = scores(mod)[,2], 
+                      PC3 = scores(mod)[,3])
 saveRDS(lulc_pc, file = "C:/Users/Tyson/REPO/Chap1-Bfly-Landuse-Climate/data/landuse_pca.rds")
 ```
 
@@ -1927,7 +1985,7 @@ plot(vario, pch = 16, cex = 1.5)
 
 
 ```{r stloo parallel}
-
+# source('spatiotempLOO.R')
 
 datmod$YearFact <- as.factor(datmod$Year)
 sitemeans <- readRDS("data/sitemeans.rds")
@@ -1942,8 +2000,12 @@ site_geo$lat <- site_geo$lat + rnorm(length(site_geo$lat), mean = 0, sd = 0.0001
 site_geo$lon <- site_geo$lon + rnorm(length(site_geo$lon), mean = 0, sd = 0.0001)
 
 datmod2 <- merge(datmod2, site_geo[, c("SiteID", "lat", "lon"), with = FALSE], by = "SiteID")
+datmod3 <- datmod2 %>%
+  rowwise() %>%
+  mutate(allmeantemp = mean(c(prevspr_meanTemp, prevsum_meanTemp, fall_meanTemp,
+                              winter_meanTemp, spring_meanTemp, currsum_meanTemp)))
 
-datmodcut <- datmod2 %>%
+datmodcut <- datmod3 %>%
   group_by(sp) %>%
   dplyr::mutate(numobs = length(growth_ukbms_add1)) %>%
   dplyr::mutate(ddsite_ukbms_square = I(ddsite_ukbms^2)) %>%
@@ -1951,7 +2013,7 @@ datmodcut <- datmod2 %>%
 
 datmodcut <- as.data.frame(datmodcut)
 
-datmodcut <- datmodcut[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFact", "sp",
+datmodcut <- datmodcut[, c("lat", "lon", "PC1", "PC2", "PC3", "SiteID", "Year", "YearFact", "sp",
                            "growth_ukbms_add1",
                            "ddsite_ukbms", "ddsite_ukbms_square",
                            "siteanom_currsum_meanTemp",
@@ -1960,128 +2022,216 @@ datmodcut <- datmodcut[, c("lat", "lon", "PC1", "PC2", "SiteID", "Year", "YearFa
                            "siteanom_fall_meanTemp",
                            "siteanom_prevsum_meanTemp",
                            "siteanom_prevspr_meanTemp",
-                           "zmean")]
+                           "zmean", "allmeantemp")]
 
 spec2model <- unique(datmodcut$sp)
-rsa <- c(0, 10, 20)
-models <- c("dens", "clim", "land", "d.c", "d.l", "d.c.l.add", "d.c.l.int")
+# rsa <- c(0, 10, 20)
+models <- c("dens", "land", "clim", "land.add", "land.mean", "clim.add", "clim.add.dens",
+            "clim.int", "d.c.l.add", "d.c.l.int", "full", "noseason")
+
 
 # models to use in 6 scenarios
 modlist <- list()
 modlist[["dens"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
                                   ddsite_ukbms_square)
 
-modlist[["clim"]] <- as.formula(growth_ukbms_add1 ~ zmean * (siteanom_currsum_meanTemp + 
-                                                               siteanom_spring_meanTemp + 
-                                                               siteanom_winter_meanTemp + 
-                                                               siteanom_fall_meanTemp +  
-                                                               siteanom_prevsum_meanTemp +
-                                                               siteanom_prevspr_meanTemp))
- 
-modlist[["land"]] <- as.formula(growth_ukbms_add1 ~ PC1*PC2)
-
-modlist[["d.c"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
-                                 ddsite_ukbms_square + 
-                                 zmean * (siteanom_currsum_meanTemp + 
-                                            siteanom_spring_meanTemp + 
-                                            siteanom_winter_meanTemp + 
-                                            siteanom_fall_meanTemp +  
+modlist[["land"]] <- as.formula(growth_ukbms_add1 ~ 
+                                   PC1 + PC2 + PC3)
+modlist[["clim"]] <- as.formula(growth_ukbms_add1 ~ 
+                                 zmean * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
                                             siteanom_prevsum_meanTemp +
                                             siteanom_prevspr_meanTemp))
 
-modlist[["d.l"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
-                                 ddsite_ukbms_square + PC1*PC2)
+modlist[["land.add"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                   PC1 + PC2 + PC3)
+
+modlist[["land.mean"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                   zmean *(PC1 + PC2 + PC3))
+
+modlist[["clim.add"]] <- as.formula(growth_ukbms_add1 ~ zmean + siteanom_currsum_meanTemp +
+                                                               siteanom_spring_meanTemp +
+                                                               siteanom_winter_meanTemp +
+                                                               siteanom_fall_meanTemp +
+                                                               siteanom_prevsum_meanTemp +
+                                                               siteanom_prevspr_meanTemp)
+
+modlist[["clim.add.dens"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                           ddsite_ukbms_square +
+                                           zmean + siteanom_currsum_meanTemp +
+                                           siteanom_spring_meanTemp +
+                                           siteanom_winter_meanTemp +
+                                           siteanom_fall_meanTemp +
+                                           siteanom_prevsum_meanTemp +
+                                           siteanom_prevspr_meanTemp)
+
+modlist[["clim.int"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                 zmean * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp))
+
 
 modlist[["d.c.l.add"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
-                                 ddsite_ukbms_square + 
-                                 zmean * (siteanom_currsum_meanTemp + 
-                                            siteanom_spring_meanTemp + 
-                                            siteanom_winter_meanTemp + 
-                                            siteanom_fall_meanTemp +  
-                                            siteanom_prevsum_meanTemp +
-                                            siteanom_prevspr_meanTemp) + 
-                                   PC1*PC2)
-
-modlist[["d.c.l.int"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
-                                 ddsite_ukbms_square + 
-                                 zmean * (siteanom_currsum_meanTemp + 
-                                            siteanom_spring_meanTemp + 
-                                            siteanom_winter_meanTemp + 
-                                            siteanom_fall_meanTemp +  
+                                 ddsite_ukbms_square +
+                                 zmean * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
                                             siteanom_prevsum_meanTemp +
                                             siteanom_prevspr_meanTemp) +
-                                   PC1 * (zmean + siteanom_currsum_meanTemp + 
-                                            siteanom_spring_meanTemp + 
-                                            siteanom_winter_meanTemp + 
-                                            siteanom_fall_meanTemp +  
+                                   PC1 + PC2 + PC3)
+
+modlist[["d.c.l.mean"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                 zmean * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
                                             siteanom_prevsum_meanTemp +
-                                            siteanom_prevspr_meanTemp) + 
-                                   PC2 * (zmean + siteanom_currsum_meanTemp + 
-                                            siteanom_spring_meanTemp + 
-                                            siteanom_winter_meanTemp + 
-                                            siteanom_fall_meanTemp +  
+                                            siteanom_prevspr_meanTemp +
+                                   PC1 + PC2 + PC3))
+
+modlist[["d.c.l.int"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                 zmean * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
                                             siteanom_prevsum_meanTemp +
-                                            siteanom_prevspr_meanTemp) + 
-                                   PC1:PC2)
+                                            siteanom_prevspr_meanTemp) +
+                                   PC1 * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) +
+                                   PC2 * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) +
+                                   PC3 * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp))
+
+modlist[["full"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                 zmean * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp +
+                                            PC1 + PC2 + PC3) +
+                                   PC1 * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) +
+                                   PC2 * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp) +
+                                   PC3 * (siteanom_currsum_meanTemp +
+                                            siteanom_spring_meanTemp +
+                                            siteanom_winter_meanTemp +
+                                            siteanom_fall_meanTemp +
+                                            siteanom_prevsum_meanTemp +
+                                            siteanom_prevspr_meanTemp))
+
+modlist[["noseason"]] <- as.formula(growth_ukbms_add1 ~ ddsite_ukbms +
+                                 ddsite_ukbms_square +
+                                   zmean * (PC1 + PC2 + PC3) +
+                                   allmeantemp * (PC1 + PC2 + PC3 + zmean))
 
 
-argsdf <- expand.grid(spec2model, rsa, models)
+argsdf <- expand.grid(spec2model, models)
+
 argslist <- as.list(1:nrow(argsdf))
-# make stloo fitting a parallel function
-argstrain <- expand.grid(spec2model, rsa)
-argstrainlist <- as.list(1:nrow(argstrain))
+
+# 
+# getTraining <- function(spec){
+#   datsp <- datmodcut %>% filter(sp == spec)
+#   datsp <- as.data.frame(datsp)
+#   training.sets <- splittingCV(data = datsp,
+#                                lon.lab="lon",
+#                                lat.lab="lat",
+#                                yr.lab = "Year",
+#                                time.split = 3)
+#   return(training.sets)
+# }
 
 
-getTraining <- function(rownum){
-  temp <- argstrain[rownum, ]
-  spec <- temp[1, 1]
-  rsa <- temp[1, 2]
-  datsp <- datmodcut %>% filter(sp == spec) 
-  datsp <- as.data.frame(datsp)
-  training.sets <- splittingST(data = datsp, 
-                               lon.lab="lon",
-                               lat.lab="lat",
-                               yr.lab = "Year",
-                               dist.split=rsa,
-                               time.split = 1)
-  return(training.sets)
-}
 
-# library(parallel)
-# # Calculate the number of cores
-# no_cores <- detectCores()
-# # Initiate cluster
-# cl <- makeCluster(no_cores)
-# clusterEvalQ(cl, {source("spatiotempLOO.R"); library(dplyr)})
-# clusterExport(cl, c("datmodcut", "argstrain"))
-# trainList <- parLapply(cl, argstrainlist, getTraining)
-# stopCluster(cl)
+# trainList <- list()
+# for(spec in spec2model){
+#   trainList[[spec]] <- getTraining(spec)
+# }
+trainList <- readRDS("CVtrainingsets.rds")
 
-# saveRDS(trainList, "LOOtrainingsets.rds")
-trainList <- readRDS("LOOtrainingsets.rds")
+# what am I asking computationally?
+test <- lapply(trainList, length)
+regs <- sum(unlist(test)) #50000! stepwise regressions
+# most complicated regression has 33 variables to run through
+
+# devtools::install_github("rstudio/profvis")
+# library(profvis)
+
 
 library(MASS)
 library(nlme)
 
-fitstloo <- function(rownum){
-  
+fitCV <- function(rownum){
   temp <- argsdf[rownum, ]
   spec <- temp[1, 1]
-  RSA <- temp[1, 2]
-  index <- as.character(temp[1,3])
+  index <- as.character(temp[1,2])
   modcall <<- modlist[[index]]
   
-  training.set <- trainList[[which(argstrain[,1] == spec & argstrain[,2] == RSA)]]
+  training.set <- trainList[[spec]]
   
   datsp <<- datmodcut %>% filter(sp == spec) 
   datsp <- as.data.frame(datsp)
   
-  mfull <- gls(modcall, 
-               data = datsp, correlation = corExp(form = ~ lat + lon | YearFact), method = "ML")
-
-  test <- modSelect(full.mod = mfull, data = datsp, training = training.set, steps = 100)
+  mfull <- try(gls(modcall, 
+               data = datsp, 
+               correlation = corExp(form = ~ lat + lon | YearFact), 
+               method = "ML", control = list(maxIter = 100, opt = "optim")))
   
-  test$stepmod <- stepAIC(mfull, direction = "backward", test = "Chisq", trace = 0)
+  test <- modSelect(full.mod = mfull, data = datsp, training = training.set, steps = 100)
+  test$fullmod <- mfull
+  test$stepmod <- try(stepAIC(mfull, direction = "backward", test = "Chisq", 
+                          trace = 0, steps = 100))
+  bfit <- stCV.rmse(model = test$stepmod, training = training.set, data = datsp)
+  test$stepRMSE <- bfit$rmse
+  test$stepR2train <- bfit$meanR2train
+  test$stepR2test <- bfit$meanR2test
+  # add step without geo correlation
+  # mnaive <- try(gls(modcall, 
+  #              data = datsp, 
+  #              method = "ML", control = list(maxIter = 100, opt = "optim")))
+  # test$stepmodnaive <- try(stepAIC(mnaive, direction = "backward", test = "Chisq", 
+  #                         trace = 0, steps = 100))
+  # bfit <- stCV.rmse(model = test$stepmodnaive, training = training.set, data = datsp)
+  # test$stepnaiveRMSE <- bfit$rmse
+  # test$stepnaiveR2 <- bfit$meanR2
+  
+  test$species <- spec
+  test$model <- index
   return(test)
 }
 
@@ -2089,33 +2239,1169 @@ library(parallel)
 # Calculate the number of cores
 no_cores <- detectCores()
 # Initiate cluster
-# cl <- makeCluster(no_cores)
-cl <- makeCluster(4)
+cl <- makeCluster(8)
+# cl <- makeCluster(2)
 clusterEvalQ(cl, {source("spatiotempLOO.R"); library(dplyr); library(MASS); library(nlme)})
-clusterExport(cl, c("datmodcut", "argsdf", "argstrain", "trainList", "modlist"), envir = .GlobalEnv)
-datList <- parLapply(cl, argslist[c(1, 100, 500, 800)], fitstloo)
+clusterExport(cl, c("datmodcut", "argsdf", "trainList", "modlist"), envir = .GlobalEnv)
+
+system.time({datList1 <- parLapply(cl, argslist[c(1:42)], fitCV)})
+system.time({datList2 <- parLapply(cl, argslist[c(43:84)], fitCV)})
+system.time({datList3 <- parLapply(cl, argslist[c(85:126)], fitCV)})
+system.time({datList4 <- parLapply(cl, argslist[c(127:168)], fitCV)})
+system.time({datList5 <- parLapply(cl, argslist[c(169:210)], fitCV)})
+system.time({datList6 <- parLapply(cl, argslist[c(211:252)], fitCV)})
+system.time({datList7 <- parLapply(cl, argslist[c(253:294)], fitCV)})
+system.time({datList8 <- parLapply(cl, argslist[c(295:336)], fitCV)})
+system.time({datList9 <- parLapply(cl, argslist[c(337:378)], fitCV)})
+system.time({datList10 <- parLapply(cl, argslist[c(379:420)], fitCV)})
+system.time({datList11 <- parLapply(cl, argslist[c(421:462)], fitCV)})
+system.time({datList12 <- parLapply(cl, argslist[c(463:504)], fitCV)})
+
 stopCluster(cl)
 
+saveRDS(datList1, "modelresults8.rds")
 
 
 
-saveRDS(datList, "speciesclimatemodels.rds")
 
-datList <- readRDS("speciesclimatemodels.rds")
-results <- data.frame()
+
+# saveRDS(datList, "speciesclimatemodels.rds")
+datList <- c(readRDS("modelresults1.rds"),
+                     readRDS("modelresults2.rds"),
+                     readRDS("modelresults3.rds"),
+                     readRDS("modelresults4.rds"),
+                     readRDS("modelresults5.rds"),
+                     readRDS("modelresults6.rds"),
+                    readRDS("modelresults7.rds"),
+                    readRDS("modelresults8.rds"))
+
+library(rms)
+library(interplot)
+
+# Summarise predictive ability of different models and 3 different approaches to GLS
+# datList <- readRDS("speciesclimatemodels.rds")
+results <- list()
 test <- datList
-  for (m in 1:length(argslist)){
-    species <- argsdf[m, 1]
-    rsa <- argsdf[m, 2]
-    temp <- data.frame(model = m, species = species, rsa = rsa, loglik = test[[m]]$loglik, 
-                       npar = length(coef(test[[m]]$fit)), aic = test[[m]]$AIC, 
-                       npar_step = length(coef(test[[m]]$stepmod)), 
-                       aic_step = AIC(test[[m]]$stepmod))
-    results <- rbind(results, temp)
-    # names(results) <- c("model", "rsa", "loglik", "npar", "AIC")
+  for (m in 1:length(datList)){
+    species <- datList[[m]]$species
+    model <- datList[[m]]$model
+    
+    nobs <- datList[[m]]$fullmod$dims$N
+    fullnpar <- datList[[m]]$fullmod$dims$p 
+    fullrange <- coef(datList[[m]]$fullmod$modelStruct$corStruct, unconstrained = FALSE)
+    fullrmse <- datList[[m]]$fullrmse
+    if(is.null(fullrmse)) fullrmse <- NA
+    fullmeanR2 <- datList[[m]]$fullmeanR2
+    if(is.null(fullmeanR2)) fullmeanR2 <- NA
+    full.loglik <- as.numeric(logLik(datList[[m]]$fullmod))
+
+    stepnpar <- datList[[m]]$stepmod$dims$p 
+    steprange <- coef(datList[[m]]$stepmod$modelStruct$corStruct, unconstrained = FALSE)
+    steprmse <- datList[[m]]$stepRMSE
+    stepmeanR2 <- datList[[m]]$stepR2
+    step.loglik <- as.numeric(logLik(datList[[m]]$stepmod))
+
+    
+    npar <- datList[[m]]$fit$dims$p 
+    range <- coef(datList[[m]]$fit$modelStruct$corStruct, unconstrained = FALSE)
+    rmse <- datList[[m]]$rmse
+    meanR2 <- datList[[m]]$meanR2
+    stcv.loglik <- as.numeric(logLik(datList[[m]]$fit))
+
+    
+    results[[m]] <- data.frame(species = species,
+                       model = model, 
+                       Nobs = nobs,
+                       p_full = fullnpar,
+                       range_full = fullrange,
+                       rmse_full = fullrmse,
+                       r2_full = fullmeanR2,
+                       ll_full = full.loglik,
+                       p_step = stepnpar,
+                       range_step = steprange,
+                       rmse_step = steprmse,
+                       r2_step = stepmeanR2,
+                       ll_step = step.loglik,
+                       p_stcv = npar,
+                       range_stcv = range,
+                       rmse_stcv = rmse,
+                       r2_stcv = meanR2,
+                       ll_stcv = stcv.loglik
+                       )
   }
 
-results %>% arrange(species, rsa)
+resdf <- rbindlist(results)
+bestmods <- resdf %>%
+  filter(model %in% c("dens", "land.add", "clim.add", "clim.int", "d.c.l.add", "d.c.l.int")) %>%
+  group_by(species) %>%
+  mutate(rank_rmse = base::rank(rmse_stcv, ties.method = "first")) 
+bestmods <- bestmods %>% filter(rank_rmse == 1) %>% dplyr::select(species, model, Nobs, rmse_stcv, r2_stcv, ll_stcv)
+  
+
+
+
+
+
+
+# momentarily lack of resolve leads me back to hierarchical mixed models.
+# worried about interactions/community effects being uninterpretable without grouping
+
+# takes more than 50 minutes to fit, so I stopped it 
+
+weather <- lmer(growth_ukbms_add1 ~ ddsite_ukbms + ddsite_ukbms_square + zmean * 
+    (siteanom_currsum_meanTemp + siteanom_spring_meanTemp + siteanom_winter_meanTemp + 
+        siteanom_fall_meanTemp + siteanom_prevsum_meanTemp + 
+        siteanom_prevspr_meanTemp) + PC1 + PC2 + PC3 + 
+             (1 + ddsite_ukbms + ddsite_ukbms_square + zmean +
+                 siteanom_currsum_meanTemp + siteanom_spring_meanTemp + siteanom_winter_meanTemp + 
+        siteanom_fall_meanTemp + siteanom_prevsum_meanTemp + 
+        siteanom_prevspr_meanTemp + PC1 + PC2 + PC3|sp) , data = datmodcut, control = lmerControl(optCtrl=list(maxfun=1e6)))
+
+
+
+resdf %>% filter(model %in% c("dens", "clim.add", "clim.int"))%>% arrange(species, rmse_stcv) %>% data.frame()
+```
+
+
+Compare adequacy of simple models
+dd vs clim vs lu vs combined
+
+```{r LRT model}
+test <- resdf %>%
+  filter(model %in% c("dens", "clim", "land", "d.c.l.add"))
+
+# go through datList
+# get fullmod ll and stcv mod ll for models to compare
+
+results <- list()
+  for (m in 1:length(datList)){
+    species <- datList[[m]]$species
+    model <- datList[[m]]$model
+    nobs <- datList[[m]]$fullmod$dims$N
+    npar_full <- datList[[m]]$fullmod$dims$p
+    npar_stcv <- datList[[m]]$fit$dims$p
+    rmse_full <- datList[[m]]$fullrmse
+    rmse_stcv <- datList[[m]]$rmse
+    ll_full <- datList[[m]]$fullmod$logLik
+    ll_stcv <- datList[[m]]$fit$logLik
+    
+    basics <- data.frame(species = species,
+            model = model,
+            nobs  = nobs,
+            npar_full = npar_full,
+            npar_stcv = npar_stcv,
+            rmse_full = rmse_full,
+            rmse_stcv = rmse_stcv,
+            ll_full = ll_full,
+            ll_stcv = ll_stcv)
+    
+    results[[m]] <- basics
+                       
+  }
+
+resdf <- rbindlist(results)
+
+# compare unnested models via adequacy
+compmod <- c("dens", "land", "clim", "land.add", "land.mean", "clim.add", "clim.int", "d.c.l.add", "d.c.l.int")
+
+  nagR2 <- function(nobs, ll.full, ll.null){
+    r2 <- 1 - exp((-2/nobs) * (ll.full - ll.null))
+    r2max <- 1 - exp((2/nobs) * ll.null)
+    r2corr <- r2/r2max
+    return(r2corr)
+  }
+
+results <- list()
+  for (m in 1:length(spec2model)){
+    
+    spec <- spec2model[m]
+    datsp <- datmodcut %>% filter(sp == spec) 
+    datsp <- as.data.frame(datsp)
+    
+    nullmod <- try(gls(growth_ukbms_add1 ~ 1, 
+                       data = datsp, 
+                       correlation = corExp(form = ~ lat + lon | YearFact), 
+                       method = "ML", control = list(maxIter = 100, opt = "optim")))
+    ll.null <- as.numeric(logLik(nullmod))
+    nobs <- nullmod$dims$N
+
+    
+    ll.comb_full <- resdf %>% filter(species == spec, model == "d.c.l.int") %>% dplyr::select(ll_full) %>% as.numeric()
+    ll.comb_stcv <- resdf %>% filter(species == spec, model == "d.c.l.int") %>% dplyr::select(ll_stcv) %>%
+      as.numeric()
+    lr.comb_full <- -2*ll.null - ll.comb_full*-2
+    lr.comb_stcv <- -2*ll.null - ll.comb_stcv*-2
+    
+    for (i in 1:length(compmod)){
+      mod <- compmod[i]
+      temp <- resdf %>% filter(species == spec, model == mod)
+      lr_full <- -2*ll.null - temp$ll_full*-2
+      lr_stcv <- -2*ll.null - temp$ll_stcv*-2
+      adeq_full <- lr_full / lr.comb_full
+      adeq_stcv <- lr_stcv / lr.comb_stcv
+      modr2_full <- nagR2(nobs = nobs, ll.full = temp$ll_full, ll.null = ll.null)
+      modr2_stcv <- nagR2(nobs = nobs, ll.full = temp$ll_stcv, ll.null = ll.null)
+
+      
+      out <- data.frame(species = spec,
+                        model = mod,
+                        lr_full = lr_full,
+                        lr_stcv = lr_stcv,
+                        adeq_full = adeq_full,
+                        adeq_stcv = adeq_stcv,
+                        lr.comb_full = lr.comb_full,
+                        lr.comb_stcv = lr.comb_stcv,
+                        nagr2_full = modr2_full,
+                        nagr2_stcv = modr2_stcv)
+      results[[length(results) + 1]] <- out
+    }
+    
+  }
+
+results2 <- rbindlist(results)
+
+#mean adequacy across species
+# compared dens vs land vs clim
+# landuse not much use!
+# when comparing model without density dependence
+ results2 %>% group_by(model) %>% summarise(mean_adeq = mean(adeq_full))
+ 
+modsumm <- resdf %>%
+  group_by(model) %>%
+  summarise(mean_npar_full = mean(npar_full),
+            mean_npar_stcv = mean(npar_stcv),
+            mean_rmse_full = mean(rmse_full),
+            mean_rmse_stcv = mean(rmse_stcv))
+
+# comparing dens vs land.add vs clim.int
+out2 <-   results2 %>% 
+  group_by(model) %>% 
+  summarise(mean_adeq_full = mean(adeq_full),
+            sd_adeq_full = sd(adeq_full),
+            min_adeq_full = min(adeq_full),
+            max_adeq_full = max(adeq_full),
+            mean_adeq_stcv = mean(adeq_stcv),
+            sd_adeq_stcv = sd(adeq_stcv),
+            min_adeq_stcv = min(adeq_stcv),
+            max_adeq_stcv = max(adeq_stcv),
+            mean_nagr2_full = mean(nagr2_full),
+            mean_nagr2_stcv = mean(nagr2_stcv))
+
+out3 <- as.data.frame(merge(modsumm, out2, by = "model"))
+out3[,-c(1:2)] <-round(out3[,-c(1:2)], 3) #the "-1" excludes column 1
+
+prettyR::delim.table(out3, filename = "modelcomparison2.csv")
+
+
+```
+
+
+```{r traits}
+OHtraits <- read.csv("data/OHtraits_R.csv") 
+OHtraits$CommonName <- as.character(OHtraits$CommonName)
+OHtraits$CommonName[2] <- "Azures"
+OHtraits <- OHtraits[1:80, c("CommonName", "MinBrood", "MaxBroodNumb", 
+                             "ResStatus", "WinterStage", "GenvsSpec")]
+OHtraits <- OHtraits %>% filter(CommonName %in% spec2model)
+
+# SpeciesList <- readRDS("SpeciesList.rds")
+dispers <- read.csv("data/CanadaDispersalIndex.csv")
+names(dispers)[4] <- "CommonName"
+dispers$CommonName <- as.character(dispers$CommonName)
+
+
+traits <- merge(OHtraits, dispers, by = "CommonName", all.x = TRUE)
+
+missing <- traits$CommonName[which(is.na(traits$Mobility..mean.))]
+
+#quick fill in, will do coded merge later 
+#lots of spelling differences between two datasets
+
+miss <- data.frame(CommonName = missing, Mobility..mean. = NA)
+miss$Mobility..mean. <- c(5.5, 5.24, 6, 4.33, 5.37, 4.3, 5.12, 6.97, 7)
+
+traits$Mobility..mean.[which(is.na(traits$Mobility..mean.))] <- miss$Mobility..mean.
+
+traits <- traits[, c("CommonName", "MinBrood", "ResStatus", "WinterStage", "Mobility..mean.")]
+names(traits)[5] <- "Dispersal"
+
+
+
+
+
+```
+
+
+
+
+# what R2 metric to use for predictive fit?
+# I think what I did first was based on lm sum of squares, not valid in gls framework.
+
+#Nagelkerke used in Harrell's book and package
+
+
+
+Use this chunk to get marginal R2 for nested models with increasing complexity.
+1. Compare dens -> land.add -> d.c.l.add
+2. Compare dens -> clim.int -> d.c.l.add
+3. Compare dens -> clim.int -> d.c.l.add -> d.c.l.int
+
+```{r plot results variable subset predictive importance}
+compmod <- models[c(1, 7, 9)]
+
+  nagR2 <- function(nobs, ll.full, ll.null){
+    r2 <- 1 - exp((-2/nobs) * (ll.full - ll.null))
+    r2max <- 1 - exp((2/nobs) * ll.null)
+    r2corr <- r2/r2max
+    return(r2corr)
+  }
+
+# get resdf above before this loop
+  results <- list()
+  for (m in 1:length(spec2model)){
+    
+    spec <- spec2model[m]
+    datsp <- datmodcut %>% filter(sp == spec) 
+    datsp <- as.data.frame(datsp)
+    
+    nullmod <- try(gls(growth_ukbms_add1 ~ 1, 
+                       data = datsp, 
+                       correlation = corExp(form = ~ lat + lon | YearFact), 
+                       method = "ML", control = list(maxIter = 100, opt = "optim")))
+    ll.null <- as.numeric(logLik(nullmod))
+    
+    for (i in 1:length(compmod)){
+      mod <- compmod[i]
+      temp <- resdf %>% filter(species == spec, model == mod)
+      prevmod <- compmod[i-1]
+      prevtemp <- resdf %>% filter(species == spec, model == prevmod)
+      
+      if (mod == "dens"){
+        modr2_full <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_full, ll.null = ll.null)
+        partr2_full <- NA
+        modr2_step <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_step, ll.null = ll.null)
+        partr2_step <- NA
+        modr2_stcv <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_stcv, ll.null = ll.null)
+        partr2_stcv <- NA
+        
+      }else{
+        
+        modr2_full <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_full, ll.null = ll.null)
+        partr2_full <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_full, ll.null = prevtemp$ll_full)
+        modr2_step <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_step, ll.null = ll.null)
+        partr2_step <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_step, ll.null = prevtemp$ll_step)
+        modr2_stcv <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_stcv, ll.null = ll.null)
+        partr2_stcv <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_stcv, ll.null = prevtemp$ll_stcv)
+      }
+      
+      out <- data.frame(species = spec,
+                        model = mod,
+                        modr2_full = modr2_full,
+                        partr2_full = partr2_full,
+                        modr2_step = modr2_step,
+                        partr2_step = partr2_step,
+                        modr2_stcv = modr2_stcv,
+                        partr2_stcv = partr2_stcv)
+      results[[length(results) + 1]] <- out
+    }
+    
+  }
+
+resdf2 <- rbindlist(results)
+landuse_margr2 <- resdf2
+climate_margr2 <- resdf2
+interaction_margr2 <- resdf2
+
+library(ggrepel)
+# plot of landuse/climate additive variable importance
+pltdat  <- gather(landuse_margr2, metric, measurement, modr2_full:partr2_stcv)
+densonly <- pltdat %>% filter(model == "dens") %>% filter(metric == "modr2_stcv")
+landmarg <- pltdat %>% filter(model == "land.add") %>% filter(metric == "partr2_stcv")
+climmarg <- pltdat %>% filter(model == "d.c.l.add") %>% filter(metric == "partr2_stcv")
+pltdat <- data.frame(species = unique(pltdat$species), density = densonly$measurement, landuse = landmarg$measurement, climate = climmarg$measurement)
+pltdat$landuse_scaled <- exp(pltdat$landuse)
+pltdat[27,3] <- 0 #issues with Pearl Crescent landuse r2 being negative
+a <- ggplot(data = pltdat, aes(x = landuse, y = climate)) + theme_bw() + 
+    geom_text_repel(aes(label = species), 
+       box.padding = unit(0.45, "lines")) +
+    geom_point(colour = "black", size = 2) + scale_x_sqrt() + 
+  labs(x = "Marginal R2 when adding landuse variables", y = "Marginal R2 when adding climate variables ",
+              title = "Improved model fit of annual growth rates\n when including climate or landuse variables") +
+              # subtitle = "Darker line shows average phenology for species or site.") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12),
+                  plot.title = element_text(size = 20, face="bold"))
+
+# plot of landuse/climate interaction variable importance
+pltdat  <- gather(interaction_margr2, metric, measurement, modr2_full:partr2_stcv)
+densonly <- pltdat %>% filter(model == "dens") %>% filter(metric == "modr2_full")
+intmarg <- pltdat %>% filter(model == "d.c.l.int") %>% filter(metric == "partr2_full")
+addmarg <- pltdat %>% filter(model == "clim.int") %>% filter(metric == "partr2_full")
+pltdat <- data.frame(species = unique(pltdat$species), density = densonly$measurement, additive = addmarg$measurement, interaction = intmarg$measurement)
+
+pltdat$interaction[which(pltdat$interaction < 0)] <- 0
+
+a <- ggplot(data = pltdat, aes(x = interaction, y = additive)) + theme_bw() + 
+    geom_text_repel(aes(label = species), 
+       box.padding = unit(0.45, "lines")) +
+    geom_point(colour = "black", size = 2) + scale_x_sqrt() + expand_limits(x = 0, y = 0) +
+  labs(x = "Marginal R2 when adding climate x landuse interaction", y = "Marginal R2 of only climate variables ",
+              title = "Improved model fit of annual growth rates\n when including climate by landuse interaction") +
+              # subtitle = "Darker line shows average phenology for species or site.") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12),
+                  plot.title = element_text(size = 20, face="bold"))
+
+
+
+
+names(pltdat)[1] <- "CommonName"
+trdat <- merge(traits, pltdat)
+trdat$ResStatus <- mapvalues(trdat$ResStatus, from = "naturalized", to = "resident")
+trdat[14,4] <- "larva"
+trdat$MinBrood <- as.character(trdat$MinBrood)
+
+library(GGally)
+# residency vs climate/landuse/density
+p <- ggpairs(dat = trdat, columns = c(3, 5:8),
+             lower = list(combo = "blank", discrete = "blank"),
+             upper = list(combo = "box"),
+             diag = list(discrete = "blankDiag")) + theme_bw()
+
+trdat_res <- trdat %>% filter(ResStatus == "resident")
+p <- ggpairs(dat = trdat_res, columns = c(2, 4, 5:8),
+             lower = list(combo = "blank", discrete = "blank"),
+             upper = list(combo = "box"),
+             diag = list(discrete = "blankDiag")) + theme_bw()
+
+
+predresults <- merge(resdf, resdf2, by = c("species", "model"), all.x = FALSE, all.y = TRUE)
+
+
+saveRDS(predresults, "predictionresults.rds")
+
+  
+```
+
+
+
+
+
+```{r plot results prediction of different approaches}
+
+# datList of details and resdf of extracted fit data
+readRDS("predictionresults.rds")
+# how do the 3 modeling approaches compare for a highly-parameterized model
+# in general, step and stcv are exactly the same in predictive ability and 
+# number of selected variables, full model performs worse
+
+tabdat <- resdf %>%
+  group_by(model) %>%
+  summarise(npar_full = mean(p_full),
+            rmse_full = mean(rmse_full),
+            R2_full = mean(modr2_full),
+            npar_step = mean(p_step),
+            rmse_step = mean(rmse_step),
+            R2_step = mean(modr2_step),
+            npar_stcv = mean(p_stcv),
+            rmse_stcv = mean(rmse_stcv),
+            R2_stcv = mean(modr2_stcv),
+            sd_rmse_full = sd(rmse_full),
+            sd_R2_full = sd(modr2_full),
+            sd_npar_step = sd(p_step),
+            sd_rmse_step = sd(rmse_step),
+            sd_R2_step = sd(modr2_step),
+            sd_npar_stcv = sd(p_stcv),
+            sd_rmse_stcv = sd(rmse_stcv),
+            sd_R2_stcv = sd(modr2_stcv))
+  
+sumtab <- tabdat[, 1:10, with = FALSE] %>% data.frame()
+sumtab[ , order(names(sumtab))]
+
+
+# move from wide to long data
+library(tidyr)
+library(ggplot2)
+
+# The arguments to gather():
+# - data: Data object
+# - key: Name of new key column (made from names of data columns)
+# - value: Name of new value column
+# - ...: Names of source columns that contain values
+data_long <- gather(predresults, metric, measurement, p_full:partr2_stcv)
+
+library(stringr)
+data_long$var <- str_split_fixed(data_long$metric, "_", 2)[,1]
+data_long$approach <- str_split_fixed(data_long$metric, "_", 2)[,2]
+
+npardat <- data_long %>%
+  filter(var == "p", model == "d.c.l.int")
+npars <- ggplot(npardat, aes(x = approach, y = measurement)) + geom_boxplot() +
+  ylab("Number of parameters") +
+  ggtitle(label = "Reducing variables through selection")
+
+rmsedat <- data_long %>%
+  filter(var == "rmse", model == "d.c.l.int")
+rmseplot <- ggplot(rmsedat, aes(x = approach, y = measurement)) + 
+  geom_boxplot() +
+  ylab("Root mean squared error") +
+  ggtitle(label = "RMSE for different modeling approaches")
+
+r2dat <- data_long %>%
+  filter(var == "modr2", model == "d.c.l.int")
+r2plot <- ggplot(r2dat, aes(x = approach, y = measurement)) + 
+  geom_boxplot() +
+  ylab("R-squared") +
+  ggtitle(label = "r2 for different modeling approaches")
+
+
+# compare models including density and climate variables for each species
+# metric is predictive ability
+
+tab_dens <- predresults %>%
+  filter(model == "dens") %>%
+  dplyr::select(species, Nobs, model, p_stcv, rmse_stcv, modr2_stcv)
+tab_dc <- predresults %>%
+  filter(model == "d.c") %>%
+  dplyr::select(species, model, p_stcv, rmse_stcv, modr2_stcv, partr2_stcv)
+tab_dcladd <- predresults %>%
+  filter(model == "d.c.l.add") %>%
+  dplyr::select(species, model, p_stcv, rmse_stcv, modr2_stcv, partr2_stcv)
+tab_dclint <- predresults %>%
+  filter(model == "d.c.l.int") %>%
+  dplyr::select(species, model, p_stcv, rmse_stcv, modr2_stcv, partr2_stcv)
+
+tabspec <- cbind(tab_dens, tab_dc[,-1, with = FALSE], tab_dcladd[,-1, with = FALSE], tab_dclint[, -1, with = FALSE])
+
+
+
+
+```
+
+
+```{r plot results important variables}
+
+
+  nagR2 <- function(nobs, ll.full, ll.null){
+    r2 <- 1 - exp((-2/nobs) * (ll.full - ll.null))
+    r2max <- 1 - exp((2/nobs) * ll.null)
+    r2corr <- r2/r2max
+    return(r2corr)
+  }
+
+# get resdf above before this loop
+results <- list()
+for (m in 1:length(spec2model)){
+  
+  spec <- spec2model[m]
+  datsp <- datmodcut %>% filter(sp == spec) 
+  datsp <- as.data.frame(datsp)
+  
+  nullmod <- try(gls(growth_ukbms_add1 ~ 1, 
+                     data = datsp, 
+                     correlation = corExp(form = ~ lat + lon | YearFact), 
+                     method = "ML", control = list(maxIter = 100, opt = "optim")))
+  ll.null <- as.numeric(logLik(nullmod))
+  
+  temp <- bestmods %>% filter(species == spec)
+  
+  nagR2spec <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_stcv, ll.null = ll.null)
+  
+  out <- data.frame(species = spec,
+                    model = temp$model,
+                    nagR2 = nagR2spec)
+  results[[length(results) + 1]] <- out
+  
+}
+
+nagR2bestmods <- rbindlist(results)
+bestmods2 <- merge(bestmods, nagR2bestmods, by = c("species", "model"))
+
+#extract coefficients from stcv models for all species
+
+results <- list()
+  for (m in 1:length(datList)){
+    species <- datList[[m]]$species
+    model <- datList[[m]]$model
+    nobs <- datList[[m]]$fullmod$dims$N
+    npar <- datList[[m]]$fit$dims$p 
+    rmse <- datList[[m]]$rmse
+    meanR2 <- datList[[m]]$meanR2
+    
+    basics <- data.frame(species = species,
+                       model = model, 
+                       Nobs = nobs,
+                       p_stcv = npar,
+                       rmse_stcv = rmse,
+                       r2_stcv = meanR2,
+                       variable = NA,
+                       coef_effect = NA)
+    
+    outdf <- data.frame()
+    for (i in 1:length(datList[[m]]$fit$coefficients)){
+      tempdf <- basics
+      tempdf$variable <- names(datList[[m]]$fit$coefficients)[i]
+      tempdf$coef_effect <- datList[[m]]$fit$coefficients[i]
+      
+      outdf <- rbind(outdf, tempdf)
+    }
+    results[[m]] <- outdf
+                       
+  }
+
+resdf <- rbindlist(results)
+
+
+test <- merge(bestmods2, resdf, by = c("species", "model", "Nobs", "rmse_stcv", "r2_stcv"), all.x = TRUE, all.y = FALSE)
+
+# test <- resdf %>% filter(model == "d.c.l.add")
+# try out table of speces x parameters for d.c model
+
+tabdat <- test
+tabdat$coef_effect <- round(tabdat$coef_effect, 2)
+tabdat$rmse_stcv <- round(tabdat$rmse_stcv, 2)
+tabdat$r2_stcv <- round(tabdat$r2_stcv, 2)
+
+# messy, so many parameters!
+tabdat <- as.data.frame(spread(tabdat, variable, coef_effect, fill = "."))
+
+library(prettyR)
+delim.table(tabdat, filename = "test.table.csv", delim = ",")
+delim.table(tabdat, filename = "test.table2.csv", delim = ",")
+
+# number of species models with each variable
+nvar <- tabdat %>% group_by(variable) %>%
+  summarise(nspecies = n())
+
+# make new data.frame of label data
+vars <- factor(c("(Intercept)", "ddsite_ukbms","ddsite_ukbms_square",            
+ "PC1","PC2","PC3",                            
+"siteanom_prevspr_meanTemp", "siteanom_prevsum_meanTemp", "siteanom_fall_meanTemp",             "siteanom_winter_meanTemp","siteanom_spring_meanTemp","siteanom_currsum_meanTemp",                
+"zmean","zmean:siteanom_prevspr_meanTemp", "zmean:siteanom_prevsum_meanTemp", "zmean:siteanom_fall_meanTemp", "zmean:siteanom_winter_meanTemp" ,   
+ "zmean:siteanom_spring_meanTemp","zmean:siteanom_currsum_meanTemp"  
+), levels = c("(Intercept)", "ddsite_ukbms","ddsite_ukbms_square",            
+ "PC1","PC2","PC3",                            
+"siteanom_prevspr_meanTemp", "siteanom_prevsum_meanTemp", "siteanom_fall_meanTemp",             "siteanom_winter_meanTemp","siteanom_spring_meanTemp","siteanom_currsum_meanTemp",                
+"zmean","zmean:siteanom_prevspr_meanTemp", "zmean:siteanom_prevsum_meanTemp", "zmean:siteanom_fall_meanTemp", "zmean:siteanom_winter_meanTemp" ,   
+ "zmean:siteanom_spring_meanTemp","zmean:siteanom_currsum_meanTemp"  
+))
+categor <- c(rep("Density-dependence", 3),
+              rep("Land-use PCs", 3),
+              rep("Seasonal anomalies", 6),
+              rep("Site temperature interaction", 7))
+varname <- factor(c("Intercept", "Linear DD", "Quad DD", "PC1: Agri\n to urban", 
+             "PC2: Forest\n to urban", "PC3: Forest/urban\n to grass/wetlands",
+             "Previous\n spring", "Previous\n summer", "Previous\n fall", "Winter", "Spring", "Summer",
+             "Mean\n site\ntemperature", "Mean:\nPrevious\n spring", "Mean:\nPrevious\n summer",
+             "Mean:\nPrevious\n fall", "Mean:\nWinter", "Mean:\nSpring", "Mean:\nSummer"),
+             levels = c("Intercept", "Linear DD", "Quad DD", "PC1: Agri\n to urban", 
+             "PC2: Forest\n to urban", "PC3: Forest/urban\n to grass/wetlands",
+             "Previous\n spring", "Previous\n summer", "Previous\n fall", "Winter", "Spring", "Summer",
+             "Mean\n site\ntemperature", "Mean:\nPrevious\n spring", "Mean:\nPrevious\n summer",
+             "Mean:\nPrevious\n fall", "Mean:\nWinter", "Mean:\nSpring", "Mean:\nSummer"))
+varDF <- data.frame(variable = vars, categor = categor, varname = varname)
+
+boxdat <- merge(varDF, tabdat, by = "variable")
+
+
+b <- ggplot(data = boxdat, aes(x = variable, y = coef_effect)) + geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Variable selected in species model", y = "Size of effect when variable included in models",
+              title = "Variable effects when selected in species models") +
+              # subtitle = "Darker line shows average phenology for species or site.") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12, angle = 90),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12),
+                  plot.title = element_text(size = 20, face="bold")) +
+  geom_text(data = nvar, aes(x = variable, y = 1, label = nspecies), size = 2) +
+  scale_x_discrete(breaks = levels(boxdat$variable),
+                      labels = varDF$varname) +
+
+  # arrange grid of boxplots by variable type
+library(gridExtra)
+b1dat <- subset(boxdat, categor == "Density-dependence")
+nvar <- b1dat %>% group_by(variable) %>%
+  summarise(nspecies = n())
+b1 <- ggplot(data = b1dat, 
+             aes(x = variable, y = coef_effect)) + geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Density-dependence", y = "Effect size") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12), 
+                  plot.margin = unit(c(.5, .5, .5, .5), "cm")) +
+  geom_text(data = nvar, aes(x = variable, y = 1, label = nspecies), size = 5) +
+  scale_x_discrete(breaks = unique(b1dat$variable),
+                      labels = unique(b1dat$varname))
+
+b2dat <- subset(boxdat, categor == "Land-use PCs")
+nvar <- b2dat %>% group_by(variable) %>%
+  summarise(nspecies = n())
+b2 <- ggplot(data = b2dat, 
+             aes(x = variable, y = coef_effect)) + geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Land-use PCs", y = "Effect size") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12),
+                  plot.margin = unit(c(.5, .5, .5, .5), "cm")) +
+  geom_text(data = nvar, aes(x = variable, y = 1, label = nspecies), size = 5) +
+  scale_x_discrete(breaks = unique(b2dat$variable),
+                      labels = unique(b2dat$varname))
+
+b3dat <- subset(boxdat, categor == "Seasonal anomalies")
+nvar <- b3dat %>% group_by(variable) %>%
+  summarise(nspecies = n())
+b3 <- ggplot(data = b3dat, 
+             aes(x = variable, y = coef_effect)) + geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Seasonal anomalies", y = "Effect size") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12),
+                  plot.margin = unit(c(.5, .5, .5, .5), "cm")) +
+  geom_text(data = nvar, aes(x = variable, y = 1, label = nspecies), size = 5) +
+  scale_x_discrete(breaks = unique(b3dat$variable),
+                      labels = unique(b3dat$varname))
+
+b4dat <- subset(boxdat, categor == "Site temperature interaction")
+nvar <- b4dat %>% group_by(variable) %>%
+  summarise(nspecies = n())
+b4 <- ggplot(data = b4dat, 
+             aes(x = variable, y = coef_effect)) + geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Site temperature interaction", y = "Effect size") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12),
+                  plot.margin = unit(c(.5, .5, .5, .5), "cm")) +
+  geom_text(data = nvar, aes(x = variable, y = 1, label = nspecies), size = 5) +
+  scale_x_discrete(breaks = unique(b4dat$variable),
+                      labels = unique(b4dat$varname))
+grid.arrange(b1, b2, b3, b4)
+
+
+# plots of traits by variable effects
+names(tabdat)[1] <- "CommonName"
+trvars <- merge(tabdat, traits, by = "CommonName")
+fil <- unique(trvars$variable)[4:8]
+
+mvdat <- trvars %>% filter(variable %in% fil)
+mvdat$MinBrood <- as.factor(as.character(mvdat$MinBrood))
+mvdat$VAR <- as.factor(mvdat$variable)
+
+mv <- ggplot(mvdat, aes(x = MinBrood, y = coef_effect)) +
+  geom_boxplot() + facet_wrap( ~ VAR)
+
+
+```
+
+
+```{r interaction}
+######
+# make graphs of interactions
+# some problems with singular fits in gls
+
+
+
+
+  nagR2 <- function(nobs, ll.full, ll.null){
+    r2 <- 1 - exp((-2/nobs) * (ll.full - ll.null))
+    r2max <- 1 - exp((2/nobs) * ll.null)
+    r2corr <- r2/r2max
+    return(r2corr)
+  }
+
+# get resdf above before this loop
+results <- list()
+for (m in 1:length(spec2model)){
+  
+  spec <- spec2model[m]
+  datsp <- datmodcut %>% filter(sp == spec) 
+  datsp <- as.data.frame(datsp)
+  
+  nullmod <- try(gls(growth_ukbms_add1 ~ 1, 
+                     data = datsp, 
+                     correlation = corExp(form = ~ lat + lon | YearFact), 
+                     method = "ML", control = list(maxIter = 100, opt = "optim")))
+  ll.null <- as.numeric(logLik(nullmod))
+  
+  temp <- bestmods %>% filter(species == spec)
+  
+  nagR2spec <- nagR2(nobs = temp$Nobs, ll.full = temp$ll_stcv, ll.null = ll.null)
+  
+  out <- data.frame(species = spec,
+                    model = temp$model,
+                    nagR2 = nagR2spec)
+  results[[length(results) + 1]] <- out
+  
+}
+
+nagR2bestmods <- rbindlist(results)
+bestmods2 <- merge(bestmods, nagR2bestmods, by = c("species", "model"))
+
+#extract coefficients from stcv models for all species
+
+results <- list()
+  for (m in 1:length(datList)){
+    species <- datList[[m]]$species
+    model <- datList[[m]]$model
+    nobs <- datList[[m]]$fullmod$dims$N
+    npar <- datList[[m]]$fit$dims$p 
+    rmse <- datList[[m]]$rmse
+    meanR2 <- datList[[m]]$meanR2
+    
+    basics <- data.frame(species = species,
+                       model = model, 
+                       Nobs = nobs,
+                       p_stcv = npar,
+                       rmse_stcv = rmse,
+                       r2_stcv = meanR2,
+                       variable = NA,
+                       coef_effect = NA)
+    
+    outdf <- data.frame()
+    for (i in 1:length(datList[[m]]$fit$coefficients)){
+      tempdf <- basics
+      tempdf$variable <- names(datList[[m]]$fit$coefficients)[i]
+      tempdf$coef_effect <- datList[[m]]$fit$coefficients[i]
+      
+      outdf <- rbind(outdf, tempdf)
+    }
+    results[[m]] <- outdf
+                       
+  }
+
+resdf <- rbindlist(results)
+
+
+test <- merge(bestmods2, resdf, by = c("species", "model", "Nobs", "rmse_stcv", "r2_stcv"), all.x = TRUE, all.y = FALSE)
+tabdat <- test
+
+
+
+# tabdat has all included coefficients in each species best models
+# merge with species traits and do permutation tests for non-random associations
+library(coin)
+tabdat <- as.data.frame(spread(tabdat, variable, coef_effect, fill = 0))
+
+# use just additive coefficients, represent interactions at the mean condition
+adddat <- tabdat[, -grep(pattern = ":", names(tabdat))]
+# get traits dataset processing from above
+names(traits)[1] <- "species"
+
+sptrait <- merge(adddat, traits, by = "species", all.x = TRUE, all.y = FALSE)
+sptrait <- droplevels.data.frame(sptrait)
+sptrait$MinBrood <- factor(as.character(sptrait$MinBrood), levels = c("1", "2", "3"))
+
+traits <- c("MinBrood", "ResStatus", "WinterStage", "Dispersal")
+yvars <- names(sptrait)[12:21]
+for (y in yvars){
+  for (t in traits){
+    temp <- sptrait[, c(y, t)]
+    permform <- as.formula(paste(y,t, sep = " ~ "))
+    (indtest <- independence_test(permform, data = temp,
+                                  ytrafo = function(data)
+                                    rank_trafo(data, ties.method = "random"),
+                                  distribution = approximate(B = 9999)))
+    plot(temp[,2], temp[,1],
+     main = paste(y, "~", t, "Pvalue =", round(pvalue(indtest), 3), sep = " "))
+  }
+}
+rtfgb b 
+
+# number of species models with each variable
+nvar <- tabdat %>% group_by(variable) %>%
+  summarise(nspecies = n())
+
+# get best model from each species from datList
+# predict with new data for plotting
+# what is datList index for each species/model?
+indexdf <- list()
+for (i in 1:length(datList)){
+  indexdf[[i]] <- data.frame(index = i, species = datList[[i]]$species, model = datList[[i]]$model)
+}
+res_index <- rbindlist(indexdf)
+
+
+################################################################
+# start with easy plot
+# density dependence for all species
+ddlist <- list()
+for (i in 1:length(spec2model)){
+  spec <- spec2model[i]
+  species_mod <- datList[[res_index$index[which(res_index$species == spec &
+                                                  res_index$model == test$model[which(test$species == spec)][1])]]]$fit
+  species_data <- datmodcut %>% filter(sp == spec)
+  coefs <- coef(species_mod)
+  add.coef <- names(coefs)[grep(pattern = "ddsite|Intercept", names(coefs))]
+  
+  if(length(add.coef) == 2){
+    beta0 <- species_mod$coefficients[[add.coef[1]]]
+    beta1 <- species_mod$coefficients[[add.coef[2]]]
+    # Set range of the moderator variable
+    min_val = min(species_data$ddsite_ukbms)
+    max_val = max(species_data$ddsite_ukbms)
+    
+    num_points = 50
+    increment = (max_val - min_val)/(num_points - 1)
+    
+    x <- seq(from=min_val, to=max_val, by=increment)
+    y = beta0 + beta1 * x
+    densdf <- data.frame(ddsite = x, growthrate = y)
+  }
+  
+  if(length(add.coef) == 3){
+    beta0 <- species_mod$coefficients[[add.coef[1]]]
+    beta1 <- species_mod$coefficients[[add.coef[2]]]
+    beta2 <- species_mod$coefficients[[add.coef[3]]]
+    # Set range of the moderator variable
+    min_val = min(species_data$ddsite_ukbms)
+    max_val = max(species_data$ddsite_ukbms)
+    
+    num_points = 50
+    increment = (max_val - min_val)/(num_points - 1)
+    
+    x <- seq(from=min_val, to=max_val, by=increment)
+    y = beta0 + beta1 * x + beta2 * (x^2)
+    densdf <- data.frame(ddsite = x, growthrate = y)
+  }
+  
+  out <- densdf
+  out$species <- spec
+  ddlist[[i]] <- out
+}
+
+densdf <- data.table::rbindlist(ddlist)
+
+dd <- ggplot(data = densdf, aes(y = growthrate, x = ddsite, group = species)) + 
+  geom_line(size = 1, alpha = .6)
+dd + geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Previous year's population size (scaled by site)", 
+        y = "Predicted log(growth rate)",
+        title = "Effect of population density on population growth for all species") +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12))
+
+#############################################
+vars <- c("siteanom_prevspr_meanTemp", "siteanom_prevsum_meanTemp", "siteanom_fall_meanTemp",             "siteanom_winter_meanTemp","siteanom_spring_meanTemp","siteanom_currsum_meanTemp")
+varlist <- as.list(vars)
+out <- data.frame()
+for (k in vars){
+  varname <- k
+  for (i in 1:length(spec2model)){
+    spec <- spec2model[i]
+    species_mod <- datList[[res_index$index[which(res_index$species == spec &
+                                                    res_index$model == test$model[which(test$species == spec)][1])]]]$fit
+    species_data <- datmodcut %>% filter(sp == spec)
+    coefs <- coef(species_mod)
+    varcoef <- names(coefs)[grep(pattern = varname, names(coefs))]
+    # add.coef <- varcoef[-grep(pattern = ":", varcoef)]
+    int.coef <- varcoef[grep(pattern = ":", varcoef)]
+    covMat = vcov(species_mod)
+    
+    
+    
+    if(length(varcoef) == 0) next
+    if(length(int.coef) == 0) next
+    
+    for (j in 1:length(int.coef)){
+      interaction <- int.coef[j]
+      intsplit <- stringr::str_split_fixed(interaction, ":", 2)
+      effect <- intsplit[which(intsplit == varname)]
+      moderator <- intsplit[-which(intsplit == varname)]
+      
+      # Get coefficients of variables
+      beta_1 = species_mod$coefficients[[effect]]
+      beta_3 = species_mod$coefficients[[interaction]]
+      
+      # Set range of the moderator variable
+      min_val = min(species_data[[moderator]])
+      max_val = max(species_data[[moderator]])
+      
+      # Determine intervals between values of the moderator
+      num_points = 50
+      increment = (max_val - min_val)/(num_points - 1)
+      
+      # Create list of moderator values at which marginal effect is evaluated
+      x_2 <- seq(from=min_val, to=max_val, by=increment)
+      
+      # Compute marginal effects
+      delta_1 = beta_1 + beta_3*x_2
+      
+      # Compute variances
+      var_1 = covMat[effect,effect] + (x_2^2)*covMat[interaction, interaction] + 2*x_2*covMat[effect, interaction]
+      
+      # Standard errors
+      se_1 = sqrt(var_1)
+      
+      # Upper and lower confidence bounds
+      z_score = qnorm(1 - ((1 - conf)/2))
+      upper_bound = delta_1 + z_score*se_1
+      lower_bound = delta_1 - z_score*se_1
+      
+      temp <- data.frame(Species = spec, Variable = effect, Moderator = moderator,
+                        Xcov = x_2, Ydelta = delta_1, upCI = upper_bound, lowCI = lower_bound)
+      out <- rbind(out, temp)
+    }
+  }
+}
+
+
+for (k in vars){
+  
+  intdf <- out %>% filter(Variable == k)
+  intdf$Moderator <- factor(intdf$Moderator, levels = c("zmean", "PC1", "PC2", "PC3"))
+  
+  ii <- ggplot(data = intdf, aes(y = Ydelta, x = Xcov, group = Species)) +
+    geom_line(size = 1, alpha = .6) +
+    facet_wrap(~ Moderator) + 
+    geom_hline(yintercept = 0, linetype = "dashed") + theme_bw() +
+   labs(x = "Value of moderator covariate", 
+        y = "Estimated marginal coefficient",
+        title = paste("Interactions:\n Effect of", k, "changes with mean site temperature\n and land-use PC", sep = " ")) +
+            theme(legend.position="none",
+                  strip.text.x = element_text(size=12),
+                  axis.title.x = element_text(size=16),
+                  axis.text.x  = element_text(size=12),
+                  axis.title.y = element_text(size=16),
+                  axis.text.y  = element_text(size=12))
+  print(ii)
+}
+
+
+
+
+# tougher than I thought!!
+
+
+# try just d.c.l.add model for now
+# trouble visualization landuse interactions
+# datlist 211:252
+
+library(effects)
+
+test <- datList[[241]]
+datsp <- datmodcut %>% filter(sp == test$species) 
+  datsp <- as.data.frame(datsp) %>%
+  mutate(zmean = as.numeric(zmean),
+         ddsite_ukbms = as.numeric(ddsite_ukbms),
+         ddsite_ukbms_square = as.numeric(ddsite_ukbms_square))
+testmod <- gls(model = test$fit$call$model, 
+               data = datsp, correlation =  corExp(form = ~lat + lon | YearFact),
+              method = "ML", control = list(maxIter = 100, opt = "optim", singular.ok = TRUE))
+
+effs <- allEffects(testmod)
+plot(effs, type = "link")
+
+eff <- effect("zmean:siteanom_prevspr_meanTemp", testmod)
+plot(eff, multiline = TRUE,
+     xlevels=list(zmean = seq(-2, 2, 2), siteanom_prevspr_meanTemp=seq(-2, 2, 1)))
+# 
+# # diagnosing degenerate matrix, not helpful here
+# X1 <- model.matrix(~ddsite_ukbms + ddsite_ukbms_square + siteanom_currsum_meanTemp + 
+#     siteanom_spring_meanTemp + siteanom_winter_meanTemp + siteanom_prevsum_meanTemp + 
+#     siteanom_prevspr_meanTemp + PC2 + PC3 + siteanom_winter_meanTemp:PC2 + 
+#     siteanom_prevspr_meanTemp:PC3, data = datsp)
+# (r <- rankMatrix(X1))
+# r < ncol(X1)
+# (s <- svd(X1))
+# mcols <- s$v[, (s$d < .Machine$double.eps)]
+# setNames(mcols, colnames(X1))
+
+
+
+# marginal effects 
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+```{r season heatmap}
+
+
+
+p <- ggplot(avg.mod.coefs, aes(x = Parameters, y = Species)) + 
+  geom_tile(aes(fill = Estimate),colour = "black") + 
+  scale_fill_gradient2(breaks = c(-.6,-.4, -.2, 0, .2, .4, .6), limits=c(-.6, .6), low = "blue", mid = "white", high = "orange", midpoint = 0) + 
+  theme(legend.title = element_blank(), 
+        legend.text = element_text(size = 18),
+        panel.background = element_rect(fill = "white"), 
+        axis.text.y = element_text(size = 18), 
+        axis.text.x = element_text(angle=45, vjust=1, hjust = 1, size=18)) + 
+  xlab("") + 
+  ylab("")
+p
+
+
+
+
+
+```
+
+
+
+
+```{r UHI?}
+# Landuse vs siteanomalies
+# possible that Daymet (zmean) captures much of the UHI effect 
+# one reason why PCs for landuse do not affect butterfly growth rates 
+
+sitetemp <- datmodcut %>%
+  group_by(SiteID) %>%
+  mutate(index = 1:length(growth_ukbms_add1)) %>%
+  filter(index == 1)
+sitetemp$lat <- scale(sitetemp$lat)
+sitetemp$lon <- scale(sitetemp$lon)
+
+
+
+mod <- gls(zmean ~ lat*lon + PC1*PC2, 
+               data = sitetemp, 
+               correlation = corExp(form = ~ lat + lon))
+nullmod <- gls(zmean ~ 1, 
+               data = sitetemp, 
+               correlation = corExp(form = ~ lat + lon))
+r.squaredLR(mod, null = nullmod)
+
 ```
 
 
@@ -2336,6 +3622,32 @@ Species traits and the phylogeny
 Chapter 3 work on common vs less common species in Ohio
 
 ```{r phylo traits}
+
+# from dataviz
+trends <- readRDS("spec.trend.rds")
+
+
+mods <-  trends %>% group_by(CommonName) %>%
+  do(fits = lm(CollInd ~ Year, data = .))
+modsCoef = tidy(mods, fits)
+modsYear <- modsCoef %>% filter(term == "Year")
+
+growth <- modsYear %>% data.frame()
+growth$col <- NA
+growth$Trend <- NA
+growth$col[which(growth$estimate >= .05)] <- "#2c7bb6"
+growth$col[which(growth$estimate <= -.05)] <- "#d7191c"
+growth$col[which(abs(growth$estimate) < .05 & growth$estimate < 0)] <- "#fdae61"
+growth$col[which(abs(growth$estimate) < .05 & growth$estimate > 0)] <- "#abd9e9"
+growth$Trend[which(growth$estimate >= .05)] <- "Increase"
+growth$Trend[which(growth$estimate <= -.05)] <- "Decrease"
+growth$Trend[which(abs(growth$estimate) < .05 & growth$estimate < 0)] <- "Slight decrease"
+growth$Trend[which(abs(growth$estimate) < .05 & growth$estimate > 0)] <- "Slight increase"
+
+growthcols <- c("#E31A1C", "#2171B5","#FD8D3C", "#6BAED6")
+
+
+setwd("../Chap1-Bfly-Landuse-Climate/")
 library(ape)
 best.tree <- read.tree(file = "data/bestTree.txt")
 constr.tree <- read.tree(file = "data/constrained.txt")
@@ -2365,11 +3677,16 @@ SpeciesList <- readRDS("SpeciesList.rds")
 
 traits <- merge(SpeciesList, OHtraits, by = "CommonName", all.x = TRUE)
 traits <- merge(traits, sptraits, by = "CommonName", all.x = TRUE)
+traits <- merge(SpeciesList, growth, by = "CommonName", all.x = TRUE)
 
 traits$CommonName <- gsub(" ", "", traits$CommonName, fixed = TRUE)
 
 phy.tips <- data.frame(tip = 1:length(tr$tip.label), CommonName = tr$tip.label)
 spec <- merge(traits, phy.tips, by= "CommonName", all = TRUE)
+
+spec$col[which(is.na(spec$col))] <- "#252525"
+
+
 
 # remove species from tree that don't show up in OH
 spec <- spec[which(spec$Present >= 10), ]
@@ -2383,6 +3700,12 @@ tips <- which(tr.edit$edge[,2] <= length(tr.edit$tip.label))
 edge.col[tips] <- "red"
 
 plot.phylo(tr.edit, type = "phylogram", use.edge.length = FALSE, edge.color = edge.col, cex = .5)
+
+
+library(picante)
+spec$Trend <- as.factor(spec$Trend)
+color.plot.phylo(tr.edit, spec, trait = "Trend", taxa.names = "CommonName",
+                 col.names = growthcols, use.edge.length = FALSE)
 
 
 library(RColorBrewer)

@@ -21,13 +21,18 @@ modSelect <- function(full.mod, data, training, steps){
   fadd <- attr(Terms, "factors")
   models <- vector("list", steps)
   n <- nobs(object, use.fallback = TRUE)
-  fit <- object
+  fit <- fitmod <- object
   # nfit <- fit$call
   bAIC <- extractAIC(fit)
   edf <- bAIC[1L]
   bAIC <- bAIC[2L]
   # bloglik <- stloo.loglik(model = fit, training = training, nfit = nfit)
-  bRMSE <- stloo.rmse(model = fit, training = training, data = data)
+  # bRMSE <- stloo.rmse(model = fit, training = training, data = data)
+  bfit <- fullmodfit <- stCV.rmse(model = fit, training = training, data = data)
+  bRMSE <- bfit$rmse
+  bR2train <- bfit$meanR2train
+  bR2test <- bfit$meanR2test
+  
   
   if (is.na(bAIC)) 
     stop("AIC is not defined for this model, so 'step' cannot proceed")
@@ -36,7 +41,9 @@ modSelect <- function(full.mod, data, training, steps){
   nm <- 1
   # models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), df.resid = n - 
   #                        edf, change = "", AIC = bAIC, loglik = bloglik)
-  models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), change = "", AIC = bAIC, rmse = bRMSE, drops = 0)
+  models[[nm]] <- list(fit = fitmod, deviance = mydeviance(fit), change = "", AIC = bAIC, rmse = bRMSE, 
+                       meanR2test = bR2test, meanR2train = bR2train, drops = 0, 
+                       fullrmse = fullmodfit$rmse, fullmeanR2test = fullmodfit$meanR2test, fullmeanR2train = fullmodfit$meanR2train)
   while (steps > 0) {
     steps <- steps - 1
     AIC <- bAIC
@@ -47,7 +54,7 @@ modSelect <- function(full.mod, data, training, steps){
     aod <- NULL
     change <- NULL
     if (length(scope$drop)) {
-      aod <- drop1stloo(object = fit, scope = scope$drop, training = training, data = data)
+      aod <- drop1stloo(object = fitmod, scope = scope$drop, training = training, data = data)
       rn <- row.names(aod)
       row.names(aod) <- c(rn[1L], paste("-", rn[-1L], sep = " "))
       if (any(aod$Df == 0, na.rm = TRUE)) {
@@ -71,17 +78,19 @@ modSelect <- function(full.mod, data, training, steps){
       change <- rownames(aod)[o[1L]]
     }
     
-    fit1 <- update(fit, paste("~ .", change), evaluate = FALSE)
-    fitmod <- eval.parent(fit1)
+    fitmod <- update(fitmod, paste("~ .", change), control = list(maxIter = 100, opt = "optim"))
+    # fitmod <- eval.parent(fit)
 
     Terms <- terms(fitmod)
     bAIC <- extractAIC(fitmod)
     edf <- bAIC[1L]
     bAIC <- bAIC[2L]
     # bloglik <- stloo.loglik(model = fit, training = training, nfit = fit)
-    bRMSE <- stloo.rmse(model = fitmod, training = training, data = data)
-    
-    
+    # bRMSE <- stloo.rmse(model = fitmod, training = training, data = data)
+    bfit <- stCV.rmse(model = fitmod, training = training, data = data)
+    bRMSE <- bfit$rmse
+    bR2test <- bfit$meanR2test
+    bR2train <- bfit$meanR2train
     # if (bloglik <= loglik - 1e-05) 
     #   break    
 
@@ -91,8 +100,10 @@ modSelect <- function(full.mod, data, training, steps){
     nm <- nm + 1
     # models[[nm]] <- list(fit = fit, deviance = mydeviance(fit), df.resid = n - 
     #                        edf, change = change, AIC = bAIC, loglik = bloglik, drops = nm)
-    models[[nm]] <- list(fit = fitmod, deviance = mydeviance(fit), 
-                         change = change, AIC = bAIC, rmse = bRMSE, drops = (nm - 1))
+    models[[nm]] <- list(fit = fitmod, deviance = mydeviance(fitmod), 
+                         change = change, AIC = bAIC, rmse = bRMSE, meanR2test = bR2test,
+                         meanR2train = bR2train, drops = (nm - 1),
+                         fullrmse = fullmodfit$rmse, fullmeanR2test = fullmodfit$meanR2test, fullmeanR2train = fullmodfit$meanR2train)
   }
  
 return(models[[nm]])  
@@ -122,16 +133,19 @@ drop1stloo <- function (object, scope, training, data)
   }
   edf <- n - object$df.residual
   # ans[1, ] <- c(edf, stloo.loglik(object, training, object))
-  ans[1, ] <- c(edf, stloo.rmse(object, training, data))
+  # ans[1, ] <- c(edf, stloo.rmse(object, training, data))
+  ans[1, ] <- c(edf, stCV.rmse(object, training, data)$rmse)
   n0 <- nobs(object, use.fallback = TRUE)
   env <- environment(formula(object))
   for (i in seq_len(ns)) {
     tt <- scope[i]
     
-    nfit <- update(object, as.formula(paste("~ . -", tt)))
+    nfit <- update(object, as.formula(paste("~ . -", tt)), 
+                   control = list(maxIter = 100, opt = "optim"))
     
     # ans[i + 1, ] <- c(edf + 1, stloo.loglik(object, training, nfit))
-    ans[i + 1, ] <- c(edf + 1, stloo.rmse(nfit, training, data))
+    # ans[i + 1, ] <- c(edf + 1, stloo.rmse(nfit, training, data))
+    ans[i + 1, ] <- c(edf + 1, stCV.rmse(nfit, training, data)$rmse)
   }
   dfs <- ans[1L, 1L] - ans[, 1L]
   dfs[1L] <- NA
@@ -166,7 +180,49 @@ splittingST <- function(data, lon.lab, lat.lab, yr.lab, dist.split, time.split){
   return(training)
 }
 
-
+# split data via ENMeval package get.block method
+# after first separating train and test sets by time
+splittingCV <- function(data, lon.lab, lat.lab, yr.lab, time.split){
+  data$index <- 1:nrow(data)
+  data$timelevel <- Hmisc::cut2(data[, yr.lab], g = time.split)
+  
+  allpts <- data[ , c("lon", "lat", "SiteID", "index")]
+  
+  allptslat <- Hmisc::cut2(allpts[, lat.lab], g = 2)
+  
+  # modified from ENMeval::get.block
+  grpA <- allpts[which(allptslat == levels(allptslat)[1]), ]
+  grpB <- allpts[which(allptslat == levels(allptslat)[2]), ]
+  grpAlon <- Hmisc::cut2(grpA[, lon.lab], g = 2)
+  grpBlon <- Hmisc::cut2(grpB[, lon.lab], g = 2)
+  
+  grp1 <- grpA[which(grpAlon == levels(grpAlon)[1]), ]
+  grp2 <- grpA[which(grpAlon == levels(grpAlon)[2]), ]
+  grp3 <- grpB[which(grpBlon == levels(grpBlon)[1]), ]
+  grp4 <- grpB[which(grpBlon == levels(grpBlon)[2]), ]
+  grp1$geolevel <- "SW"
+  grp2$geolevel <- "SE"
+  grp3$geolevel <- "NW"
+  grp4$geolevel <- "NE"
+  grp <- rbind(grp1, grp2, grp3, grp4)
+  
+  grp <- merge(grp, data[, c("SiteID", "index", "timelevel")], by = c("SiteID", "index"))
+  
+  # selecting for training data: 
+  # all regions for years not removed to test
+  # 3 regions for years removed to test
+  # amounts roughly to 12-fold CV
+  training <- list()
+  for(reg in unique(grp$geolevel)){
+    for (yr in unique(grp$timelevel)){
+      trainrows <- grp$index[-which(grp$geolevel == reg & grp$timelevel == yr)]
+      num.cell <- as.vector(sort(trainrows))
+      if(length(num.cell) >= (nrow(data) - 2)) next  #does not create dataset if <2 test pts
+      training[[length(training) + 1]] <- num.cell
+    }
+  }
+  return(training)
+}
 ######################################################################
 # Computing Spatial Leave One Out (SLOO) logLikelihood from a model ##
 ######################################################################
@@ -199,12 +255,12 @@ stloo.rmse <- function(model, training, data){
       # Calculating the model parameters from the i-st training set:
       # m <- glm(formula=formula(nfit),data=data.split,family= model$family)
       m <- gls(model = predform, 
-          data = data.split, correlation = corExp(form = ~ lat + lon | YearFact), method = "ML")
+               data = data.split, correlation = corExp(form = ~ lat + lon | YearFact), method = "ML")
       # Predicting the i-st observation from the i-st training set:
       m.pred <- predict(object=m, newdata=modeldat[i,])
       # Calculating the probability of the i-st observed value according to the predicted one by the i-st training set:
       sqerr[i] <- (modeldat[i,y] - m.pred)^2
-
+      
     }
     # Calculating the overall SLOO rmse:
     rmse <- sqrt(mean(sqerr))
@@ -212,7 +268,97 @@ stloo.rmse <- function(model, training, data){
   }
 }
 
+# LOO too computationally expensive
+# this function replaces LOO with approx 12-fold cross validation
+# time split observations into 3 equal groups, each group split into 4 regions
+stCV.rmse <- function(model, training, data){
+  modeldat <- as.data.frame(data)
+  predmod <<- model
+  predform <<- formula(predmod)
+  # Creating the response variable name
+  y <- as.character(x=formula(x=predmod))[2]
+  nullform <<- formula(paste(y, "~ 1", sep = " "))
 
+  # Initializing the 'logLik' object
+  sqerr <- rep(NA,length(training))
+  r2 <- rep(NA,length(training))
+  r2train <- rep(NA, length(training))
+  r2test <- rep(NA, length(training))
+
+  
+  # Checking that the minimal number of observations in the training sets
+  # is not lower than the number of parameters in the model considered.
+  if(min(as.numeric(x=summary(object=training)[,1]))<(length(x=predmod$coef)+1)){
+    # Return NA if the minimal number of observations in the training sets
+    # is lower than the number of parameters of the model considered
+    print(x="Warning: too high threshold distance in 'training', NA is return")
+    return(value=NA)
+  }else {
+    # Calculating the SLOO logLikelihoods for each observation i
+    for(i in 1:length(training)){ 
+      # Extracting the i-st training set:
+      data.train <- as.data.frame(modeldat[training[[i]], ])
+      data.test <- as.data.frame(modeldat[-training[[i]], ])
+      # Calculating the model parameters from the i-st training set:
+      # m <- glm(formula=formula(nfit),data=data.split,family= model$family)
+      m <- try(gls(model = predform, 
+                   data = data.train, 
+                   correlation = corExp(form = ~ lat + lon | YearFact),
+                   method = "ML",
+                   control = list(maxIter = 100, opt = "optim"))
+      )
+      null <- try(gls(model = nullform,
+                      data = data.train,
+                      correlation = corExp(form = ~ lat + lon | YearFact),
+                      method = "ML",
+                      control = list(maxIter = 100, opt = "optim"))
+      )
+      if (class(m) == "gls"){
+        # Predicting the i-st observation from the i-st training set:
+        m.pred <- predict.gls.tyson(object = m, newdata = data.test)
+        null.pred <- predict.gls.tyson(object = null, newdata = data.test)
+        # insample and out of sample nagelkerke r2
+        m.loglik <- sum(dnorm(x = as.numeric(data.test[,y]), mean=m.pred, sd=sqrt(sum(residuals(m)^2)/nrow(data.train)),log=TRUE))
+        null.loglik <- sum(dnorm(x = as.numeric(data.test[,y]), mean=null.pred, sd=sqrt(sum(residuals(null)^2)/nrow(data.train)),log=TRUE))
+        r2train[i] <- nagR2(m$dims$N, as.numeric(logLik(m)), as.numeric(logLik(null)))
+        r2test[i] <- nagR2(length(m.pred), m.loglik, null.loglik)
+        # Calculating the probability of the i-st observed value according to the predicted one by the i-st training set:
+        sqerr[i] <- mean((data.test[,y] - m.pred)^2)
+        # r2[i] <- 1 - sum((data.test[,y] - m.pred)^2) / sum((data.test[,y] - mean(data.test[,y]))^2)
+      }else{
+        next
+      }
+    }
+    # Calculating the overall SLOO rmse:
+    rmse <- sqrt(mean(sqerr))
+    
+    # meanR2 <- mean(r2)
+    meanR2train <- mean(r2train)
+    meanR2test <- mean(r2test)
+    return(data.frame(rmse = rmse, meanR2train = meanR2train, meanR2test = meanR2test))
+  }
+}
+
+nagR2 <- function(nobs, ll.full, ll.null){
+  r2 <- 1 - exp((-2/nobs) * (ll.full - ll.null))
+  r2max <- 1 - exp((2/nobs) * ll.null)
+  r2corr <- r2/r2max
+  return(r2corr)
+}
+
+nagR2v2 <- function(mod.full, mod.null){
+  ll.full <- as.numeric(logLik(mod.full))
+  ll.null <- as.numeric(logLik(mod.null))
+  nobs <- mod.full$dims$N
+  if (nobs == mod.null$dims$N){
+  r2 <- 1 - exp((-2/nobs) * (ll.full - ll.null))
+  r2max <- 1 - exp((2/nobs) * ll.null)
+  r2corr <- r2/r2max
+  return(r2corr)
+  }else{
+    print("Error!: Dimensions don't match")
+  }
+}
 ######################################################################
 # Computing Spatial Leave One Out (SLOO) logLikelihood from a model ##
 ######################################################################
